@@ -42,7 +42,7 @@ def build_rotations(shapes: Dict[str, np.array]) -> Dict[str, np.array]:
 TETRIMINO_ROTATIONS = build_rotations(TETRIMINOS)
 
 
-class Map:
+class map:
     def __init__(self):
         self.num_rows: int = 64
         self.num_cols: int = 64

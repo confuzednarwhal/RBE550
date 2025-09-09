@@ -1,6 +1,6 @@
-import A1_Flatlands.env_handler as env_handler
+import env_handler as Enviornment
 
-test = env_handler.Map()
+test = Enviornment.map()
 
 test.generate_map()
 test.display_field()
