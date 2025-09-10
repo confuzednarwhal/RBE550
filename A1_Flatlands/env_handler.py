@@ -53,14 +53,17 @@ class map:
 
         self.rotations: Dict[str, List[np.array]] = TETRIMINO_ROTATIONS
 
+    def get_map(self) -> np.array:
+        return self.field
 
     def pick_tetrimino(self):
+        rot: np.array = []
         name = self.rng.choice(list(self.rotations.keys()))
         rot = self.rng.choice(self.rotations[name])
         return rot
 
     # checks to see if shape fits the bounds of the field 
-    def can_place(self, shape, row, col):
+    def can_place(self, shape, row, col) -> bool:
         h, w = shape.shape
         H, W = self.field.shape
         return (row + h < H and col + w < W)
@@ -72,7 +75,7 @@ class map:
         # field[row:row+h, col:col+w] = shape
 
     # generates map at specific density
-    def generate_map(self):
+    def generate_map(self) -> np.array:
         curr_density = 0
         # field = np.zeros((fieldSize_row, fieldSize_col))
 
@@ -92,6 +95,16 @@ class map:
         
         return self.field
     
+    def update_map(self, location: np.array = []):
+        if location:
+
+
+        
+
+
+
+
+
     def display_field(self):
         H, W = self.field.shape
         plt.figure(figsize=(10, 10))
