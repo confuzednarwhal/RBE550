@@ -116,16 +116,12 @@ def run():
 
     while running:
 
-        if(step - old_step > 20):
+        if(step - old_step > 10):
             hero1.place_hero(field, new_pos=None)
-
             old_step = step
-            # hero1.increment_reset()
-            print(hero1.reset)
 
         enemy_positions: list = [enemy1.get_pos()]
         enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
-        print(hero1.pos)
         hero_path: list = hero1.gen_path(field, enemy_layer)
 
         if(enemy1.alive):
@@ -171,7 +167,7 @@ def run():
         """
 
         # limit fps
-        clock.tick(10) 
+        clock.tick(6) 
 
         # interate though path
         # hero_next += 1

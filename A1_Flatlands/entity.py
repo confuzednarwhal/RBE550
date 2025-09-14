@@ -62,7 +62,7 @@ class hero(entity):
         # self.danger: bool = False  # enemy close
         self.color = (50, 160, 255)
         self.reset: int = 0
-        self.teleport_lim: int = 2
+        self.teleport_lim: int = 4
 
     def can_teleport(self) -> bool:
         return self.reset < self.teleport_lim
@@ -74,14 +74,14 @@ class hero(entity):
         return self.goal
 
     def place_hero(self, field: np.array, new_pos: tuple = None):
-        if(new_pos is None and self.can_teleport()):
-            self.pos = self.pick_pos(field)
-            self.reset += 1
-        elif(self.can_teleport()):
-            self.update_pos(new_pos)
-        # else:
-        #     # print(self.pos)
-        #     return
+        if new_pos is None:
+            # Teleport only while under the limit
+            if self.reset < self.teleport_lim:
+                self.pos = self.pick_pos(field)
+                self.reset += 1
+            # else: do nothing this tick (no teleport), but DO NOT block normal moves elsewhere
+            return
+        self.update_pos(new_pos)
 
     def enemy_prox(self, pos: tuple[int,int]) -> bool:
         # calculate enemy prox to hero
