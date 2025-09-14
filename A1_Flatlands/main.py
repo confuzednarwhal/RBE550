@@ -12,14 +12,13 @@ field = test.generate_map()
 enemies = [entity.enemy() for _ in range(10)]   
 
 
-cell_size: int = 10
+cell_size: int = 15
 grid_h, grid_w = field.shape
 screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
 
-screen = pygame.display.set_mode((screen_w,screen_h))
-surface = pygame.surfarray.make_surface(field)
+# surface = pygame.surfarray.make_surface(field)
 
-def draw_grid():
+def draw_grid(screen):
     # --- Draw grid lines ---
     # Vertical lines
     for x in range(0, screen_w, cell_size):
@@ -33,19 +32,19 @@ def get_cell_center(row: int, col: int) -> tuple[int,int]:
     y = row * cell_size + cell_size // 2
     return (x, y)
 
-def draw_hero(coords):
+def draw_hero(screen, coords):
     coord_x, coord_y = get_cell_center(coords[0], coords[1])
     coord_r = max(2, cell_size // 2 - 1)
     pygame.draw.circle(screen, hero1.color, (coord_x, coord_y), coord_r)
 
-def draw_goal(coords):
+def draw_goal(screen, coords):
     goal_color = (0, 255, 0)
     # coord_x, coord_y = get_cell_center(coords[0], coords[1], cell_size)
     coord_x, coord_y = coords[1]*cell_size, coords[0]*cell_size
     rect = pygame.Rect(coord_x, coord_y, cell_size, cell_size)
     pygame.draw.rect(screen, goal_color, rect)
 
-def draw_enemy(enemy, coords):
+def draw_enemy(screen, enemy, coords):
     if(not enemy.alive):
         return
     if(coords is None):
@@ -62,9 +61,15 @@ def draw_enemy(enemy, coords):
 
     tri = [(offset_x + size_ratio//2, offset_y), (offset_x, offset_y + size_ratio), (offset_x + size_ratio, offset_y + size_ratio)]
     pygame.draw.polygon(screen, enemy.color, tri)
+
+def draw_text(screen, text: str):
+    font = pygame.font.SysFont(None, 64)
+    text_surf = font.render(text, True, (255, 255, 255))
+    rect = text_surf.get_rect(center = (screen.get_width()//2, screen.get_height()//2))
+    screen.blit(text_surf, rect)
     
 
-def handle_display():
+def handle_display(screen, end_game: bool, game_state: str):
     grid_h, grid_w = field.shape
     screen_h, screen_w = grid_h * cell_size, grid_w * cell_size
     
@@ -79,22 +84,35 @@ def handle_display():
     # screen.fill((0, 0, 0))               # optional clear (scaled_surface covers it)
     screen.blit(scaled_surface, (0, 0))    # draw at top-left
     
-    draw_grid()
+    draw_grid(screen)
     #draw hero
-    draw_hero(hero1.get_pos())
+    draw_hero(screen, hero1.get_pos())
     # draw goal point
-    draw_goal(hero1.get_goal())
+    draw_goal(screen, hero1.get_goal())
     # draw_hero(cell_size, screen, hero1.get_goal())
     for e in enemies:
         if(e is not None):
             # print("alive:", e.alive, "pos:", e.get_pos())
-            draw_enemy(e, e.get_pos())
+            draw_enemy(screen, e, e.get_pos())
+
+    if(end_game):
+        overlay = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        screen.blit(overlay, (0, 0))
+        draw_text(screen, game_state)
 
     pygame.display.flip() 
 
 
 def run():
     pygame.init()
+    pygame.font.init()
+
+    screen = pygame.display.set_mode((screen_w,screen_h))
+    pygame.display.set_caption("Flatlanders")
+
+    end_game = False  # flag to kill the game
+    game_state: str = ""
 
     # field = test.generate_map()
     hero1.gen_goal(field)
@@ -136,10 +154,13 @@ def run():
 
     while running:
 
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
         if(step - old_step > 10):
             hero1.place_hero(field, new_pos=None)
             old_step = step
-
 
         # enemy_positions: list = [enemy1.get_pos()]
         enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
@@ -147,57 +168,49 @@ def run():
 
         for e in enemies:
             e_path: np.array[int] = []
-            if(e.alive and e.pos is not None):
-                e.set_goal(hero1.get_pos())
+
+            if(e.at_goal()):
+                hero1.alive = False
+                break
+
+            if(e.alive and hero_path is not None and e.pos is not None):
+                # e.set_goal(hero1.get_pos())
+                e.set_goal(hero_path[1])
                 e_path = e.gen_path(field)
 
             if (not e.at_goal() and e_path):
                 if (e.alive and field[e_path[1]] == 0):
                     e.place_enemy(field, new_pos = e_path[1])
-                elif (e.alive and field[e_path[1]] != 1):
+                    # print("here")
+                elif (e.alive and field[e_path[1]] == 1):
                     field[e_path[0]] = 1
                     e.alive = False
+                    # print("cmon")
                     # e.place_enemy(field, new_pose = e_path[1])
             
 
         """TODO Dynamic stuff here"""
-        if(not hero1.at_goal() and not enemy1.at_goal()):
+        if(not hero1.at_goal() and hero1.alive):
             hero1.place_hero(field, new_pos=hero_path[1])
-
         else:
+            end_game = True
+            if(hero1.at_goal()):
+                game_state = "Hero has escaped!"
+            else:
+                game_state = "Hero is dead :("
+
+            handle_display(screen, end_game, game_state)
+            pygame.time.wait(2000)
             break
 
-        handle_display()
-
-        """
-        #Convert map to rbg colors and display it
-        # Free cells (0) -> white [255,255,255]; walls (1) -> black [0,0,0]
-        rgb = np.zeros((grid_h, grid_w, 3), dtype=np.uint8)  # start black everywhere
-        rgb[field == 0] = [255, 255, 255]                    # paint free cells white
-
-        surface = pygame.surfarray.make_surface(np.transpose(rgb, (1, 0, 2)))
-        scaled_surface = pygame.transform.scale(surface, (screen_w, screen_h))
-
-        # screen.fill((0, 0, 0))               # optional clear (scaled_surface covers it)
-        screen.blit(scaled_surface, (0, 0))    # draw at top-left
-        
-        draw_grid(screen_w, screen_h, cell_size, screen)
-        #draw hero
-        draw_hero(cell_size, screen, hero1.get_pos())
-        # draw goal point
-        draw_goal(cell_size, screen, hero1.get_goal())
-        # draw_hero(cell_size, screen, hero1.get_goal())
-        draw_enemy(cell_size, screen, enemy1.get_pos())
-        
-        pygame.display.flip()
-        """
-
+        handle_display(screen, end_game, game_state)
         # limit fps
         clock.tick(10) 
-
         # interate though path
         step += 1
 
+
+    # pygame.time.wait(2000)
     pygame.quit()
 
 

@@ -62,7 +62,7 @@ class hero(entity):
         # self.danger: bool = False  # enemy close
         self.color = (50, 160, 255)
         self.reset: int = 0
-        self.teleport_lim: int = 4
+        self.teleport_lim: int = 1
 
     def can_teleport(self) -> bool:
         return self.reset < self.teleport_lim
@@ -94,7 +94,7 @@ class hero(entity):
         sr, sc = self.pos
         gr, gc = self.goal
         if blocked[sr, sc] or blocked[gr, gc]:
-            print("path blocked")
+            # print("path blocked")
             return None
         if self.pos == self.goal:
             return [self.pos]
