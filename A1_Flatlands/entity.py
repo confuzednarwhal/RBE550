@@ -2,35 +2,63 @@ import numpy as np
 import math
 import heapq
 from typing import Dict, List
+import random
 
 class entity:
     def __init__(self):
         self.color: str = ""
-        #self.pos: tuple[int,int]
-        #self.goal: tuple[int,int]
-        self.pos: tuple[int,int] = (0, 0)
-        self.goal: tuple[int,int] = (50,24)
+        # self.pos: tuple[int,int]
+        # self.goal: tuple[int,int]
+        self.pos: tuple[int,int] = (0,0)
+        self.goal: tuple[int,int] = (0,0)
         self.alive: bool = True
         self.moves = [(1,0),( -1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
 
     def get_pos(self) -> tuple[int,int]:
         return self.pos
     
-    def update_pos(self):
-        self.pos = [0, 0]
+    def update_pos(self, position: tuple[int,int]):
+        self.pos = position
 
-    def place_entity(self):
-
-        return 0
+    def pick_pos(self, field: np.array):
+        try_place = True
+        num_rows, num_cols = field.shape
+        while try_place:
+            r = random.randint(0, num_rows - 1)
+            c = random.randint(0, num_cols - 1)
+            new_pos = (r,c)
+            if(field[new_pos] == 0):
+                # try_place = False
+                # return new_pos
+                break
+        return new_pos
     
     def gen_trajectory(self):
         return 0
     
 class hero(entity):
+
     def __init__(self):
         super().__init__()
         self.danger: bool = False  # enemy close
         self.color = "blue"
+        self.reset: int = 0
+        self.teleport_lim: int = 4
+    
+    def gen_goal(self, field: np.array):
+        self.goal = self.pick_pos(field)
+
+    def get_goal(self):
+        return self.goal
+
+    def place_hero(self, field: np.array, new_pos: tuple = None):
+        if(new_pos is None and self.reset != self.teleport_lim):
+            self.pos = self.pick_pos(field)
+            self.reset += 1
+        elif(self.reset != self.teleport_lim):
+            self.update_pos = new_pos
+        else:
+            return
 
     def enemy_prox(self, pos: tuple[int,int]) -> bool:
         # calculate enemy prox to hero
@@ -48,7 +76,6 @@ class hero(entity):
         if self.pos == self.goal:
             return [self.pos]
     
-        
         def heuristic(a, b):
             # Octile distance: good for 8-direction grids
             dx = abs(a[0] - b[0])
@@ -128,5 +155,9 @@ class enemy(entity):
     def __init__(self):
         self.color = "red"
         self.obstacle: bool = False  #even necessary?
+
+
+    def update_perimeter():
+        return 0
 
 

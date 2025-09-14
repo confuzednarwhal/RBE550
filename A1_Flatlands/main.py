@@ -33,6 +33,7 @@ def run():
 
         """TODO Dynamic stuff here"""
         step += 1
+        print(step)
 
         """Convert map to rbg colors and display it"""
         # Free cells (0) -> white [255,255,255]; walls (1) -> black [0,0,0]
@@ -58,8 +59,12 @@ test = Enviornment.map()
 hero1 = entity.hero()
 
 field = test.generate_map()
+goal = hero1.gen_goal(field)
+start = hero1.place_hero(field, new_pos=None)
+
 huh = hero1.gen_path(field)
-# test.display_field(huh)
 
+print(hero1.get_pos())
+print(hero1.get_goal())
 
-run()
+# run()
