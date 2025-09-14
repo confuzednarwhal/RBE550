@@ -59,13 +59,13 @@ class hero(entity):
 
     def __init__(self):
         super().__init__()
-        self.danger: bool = False  # enemy close
+        # self.danger: bool = False  # enemy close
         self.color = (50, 160, 255)
         self.reset: int = 0
-        self.teleport_lim: int = 4
+        self.teleport_lim: int = 2
 
-    def increment_reset(self):
-        self.reset += 1
+    def can_teleport(self) -> bool:
+        return self.reset < self.teleport_lim
 
     def gen_goal(self, field: np.array):
         self.goal = self.pick_pos(field)
@@ -74,13 +74,13 @@ class hero(entity):
         return self.goal
 
     def place_hero(self, field: np.array, new_pos: tuple = None):
-        if(new_pos is None and self.reset < self.teleport_lim):
+        if(new_pos is None and self.can_teleport()):
             self.pos = self.pick_pos(field)
             self.reset += 1
-        elif(self.reset < self.teleport_lim):
+        elif(self.can_teleport()):
             self.update_pos(new_pos)
-            # print("move")
         # else:
+        #     # print(self.pos)
         #     return
 
     def enemy_prox(self, pos: tuple[int,int]) -> bool:
@@ -121,8 +121,6 @@ class hero(entity):
         def in_bounds(r, c):
             return 0 <= r < field_row and 0 <= c < field_cols
             
-
-
         g = {self.pos: 0.0}
         came_from: dict = {}
         open_set = [(heuristic(self.pos, self.goal), sr, sc)]

@@ -123,9 +123,9 @@ def run():
             # hero1.increment_reset()
             print(hero1.reset)
 
-
         enemy_positions: list = [enemy1.get_pos()]
         enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
+        print(hero1.pos)
         hero_path: list = hero1.gen_path(field, enemy_layer)
 
         if(enemy1.alive):
