@@ -9,6 +9,9 @@ hero1 = entity.hero()
 enemy1 = entity.enemy()
 field = test.generate_map()
 
+enemies = [entity.enemy() for _ in range(10)]   
+
+
 cell_size: int = 10
 grid_h, grid_w = field.shape
 screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
@@ -42,24 +45,28 @@ def draw_goal(coords):
     rect = pygame.Rect(coord_x, coord_y, cell_size, cell_size)
     pygame.draw.rect(screen, goal_color, rect)
 
-def draw_enemy(coords):
-    if(enemy1.alive):
-        coord_x, coord_y = coords[1]*cell_size, coords[0]*cell_size 
+def draw_enemy(enemy, coords):
+    if(not enemy.alive):
+        return
+    if(coords is None):
+        return
+    
+    coord_x, coord_y = coords[1]*cell_size, coords[0]*cell_size 
 
-        size_ratio = int(cell_size * 0.8)
+    size_ratio = int(cell_size * 0.8)
 
-        offset_x = coord_x + (cell_size - size_ratio) // 2
-        offset_y = coord_y + (cell_size - size_ratio) // 2
+    offset_x = coord_x + (cell_size - size_ratio) // 2
+    offset_y = coord_y + (cell_size - size_ratio) // 2
 
-        # print("bruh")
+    # print("bruh")
 
-        tri = [(offset_x + size_ratio//2, offset_y), (offset_x, offset_y + size_ratio), (offset_x + size_ratio, offset_y + size_ratio)]
-        pygame.draw.polygon(screen, enemy1.color, tri)
+    tri = [(offset_x + size_ratio//2, offset_y), (offset_x, offset_y + size_ratio), (offset_x + size_ratio, offset_y + size_ratio)]
+    pygame.draw.polygon(screen, enemy.color, tri)
     
 
 def handle_display():
     grid_h, grid_w = field.shape
-    screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
+    screen_h, screen_w = grid_h * cell_size, grid_w * cell_size
     
     """Convert map to rbg colors and display it"""
     # Free cells (0) -> white [255,255,255]; walls (1) -> black [0,0,0]
@@ -78,7 +85,10 @@ def handle_display():
     # draw goal point
     draw_goal(hero1.get_goal())
     # draw_hero(cell_size, screen, hero1.get_goal())
-    draw_enemy(enemy1.get_pos())
+    for e in enemies:
+        if(e is not None):
+            # print("alive:", e.alive, "pos:", e.get_pos())
+            draw_enemy(e, e.get_pos())
 
     pygame.display.flip() 
 
@@ -87,10 +97,19 @@ def run():
     pygame.init()
 
     # field = test.generate_map()
-    goal = hero1.gen_goal(field)
-    start = hero1.place_hero(field, new_pos=None)
+    hero1.gen_goal(field)
+    hero1.place_hero(field, new_pos=None)
 
-    start_e = enemy1.place_enemy(field, new_pos = None)
+    enemy_positions: list[tuple[int,int]] = []
+    enemy_layer: np.array
+
+    for e in enemies:
+        e.pos = e.place_enemy(field, new_pos = None)
+        pos = e.get_pos()
+        if pos is not None:
+            enemy_positions.append(e.get_pos())
+
+    # start_e = enemy1.place_enemy(field, new_pos = None)
 
     # hero_path: list = hero1.gen_path(field)
     # hero_path_size: int = len(hero_path)
@@ -112,7 +131,7 @@ def run():
     old_step = 0
 
     # enemy_positions = [enemy1.get_pos()]
-    # enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
+    enemy_layer: np.array = base_entity.gen_cost_layer(field, enemy_positions)
 
     while running:
 
@@ -120,24 +139,30 @@ def run():
             hero1.place_hero(field, new_pos=None)
             old_step = step
 
-        enemy_positions: list = [enemy1.get_pos()]
-        enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
-        hero_path: list = hero1.gen_path(field, enemy_layer)
 
-        if(enemy1.alive):
-            enemy1.set_goal(hero1.get_pos())
-            enemy_path = enemy1.gen_path(field)
+        # enemy_positions: list = [enemy1.get_pos()]
+        enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
+        hero_path = hero1.gen_path(field, enemy_layer)
+
+        for e in enemies:
+            e_path: np.array[int] = []
+            if(e.alive and e.pos is not None):
+                e.set_goal(hero1.get_pos())
+                e_path = e.gen_path(field)
+
+            if (not e.at_goal() and e_path):
+                if (e.alive and field[e_path[1]] == 0):
+                    e.place_enemy(field, new_pose = e_path[1])
+                elif (e.alive and field[e_path[1]] != 1):
+                    field[e_path[0]] = 1
+                    e.alive = False
+                    # e.place_enemy(field, new_pose = e_path[1])
+            
 
         """TODO Dynamic stuff here"""
         if(not hero1.at_goal() and not enemy1.at_goal()):
-
             hero1.place_hero(field, new_pos=hero_path[1])
 
-            if(enemy1.alive and field[enemy_path[1]] == 0):
-                enemy1.place_enemy(field,new_pos=enemy_path[1])
-            elif(enemy1.alive and field[enemy_path[1]] != 0):
-                field[enemy_path[0]] = 1
-                enemy1.alive = False
         else:
             break
 
@@ -167,15 +192,14 @@ def run():
         """
 
         # limit fps
-        clock.tick(6) 
+        clock.tick(10) 
 
         # interate though path
-        # hero_next += 1
         step += 1
 
     pygame.quit()
 
-# print(enemy1.get_pos())
-# print(hero1.get_pos())
+
+
 
 run()
