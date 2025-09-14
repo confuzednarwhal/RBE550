@@ -104,10 +104,11 @@ def run():
     enemy_layer: np.array
 
     for e in enemies:
-        e.pos = e.place_enemy(field, new_pos = None)
-        pos = e.get_pos()
-        if pos is not None:
-            enemy_positions.append(e.get_pos())
+        # e.pos = e.place_enemy(field, new_pos = None)
+        e.place_enemy(field, new_pos = None)
+        # pos = e.get_pos()
+        # if pos is not None:
+        enemy_positions.append(e.get_pos())
 
     # start_e = enemy1.place_enemy(field, new_pos = None)
 
@@ -152,7 +153,7 @@ def run():
 
             if (not e.at_goal() and e_path):
                 if (e.alive and field[e_path[1]] == 0):
-                    e.place_enemy(field, new_pose = e_path[1])
+                    e.place_enemy(field, new_pos = e_path[1])
                 elif (e.alive and field[e_path[1]] != 1):
                     field[e_path[0]] = 1
                     e.alive = False
