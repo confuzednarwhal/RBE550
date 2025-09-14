@@ -18,18 +18,28 @@ def get_cell_center(row: int, col: int, cell_size: int) -> tuple[int,int]:
     y = row * cell_size + cell_size // 2
     return (x, y)
 
-def draw(cell_size: int, screen, coord: tuple[int,int], color: tuple[int,int,int]):
-    coord_x, coord_y = get_cell_center(coord[0], coord[1], cell_size)
+def draw_hero(cell_size: int, screen, coords):
+    coord_x, coord_y = get_cell_center(coords[0], coords[1], cell_size)
     coord_r = max(2, cell_size // 2 - 1)
-    pygame.draw.circle(screen, color, (coord_x, coord_y), coord_r)
+    pygame.draw.circle(screen, hero1.color, (coord_x, coord_y), coord_r)
 
+def draw_goal(cell_size: int, screen, coords):
+    goal_color = (0, 255, 0)
+    # coord_x, coord_y = get_cell_center(coords[0], coords[1], cell_size)
+    coord_x, coord_y = coords[0]*cell_size, coords[1]*cell_size
+    rect = pygame.Rect(coord_y, coord_x, cell_size, cell_size)
+    pygame.draw.rect(screen, goal_color, rect)
+
+
+def draw_enemy():
+    return 0
 
 def run():
     pygame.init()
 
     hero_next: int = 0
 
-    cell_size = 10
+    cell_size: int = 10
     grid_h, grid_w = field.shape
     screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
 
@@ -41,9 +51,9 @@ def run():
     step = 0
 
     while running:
-        for e in pygame.event.get():
-            if e.type == pygame.QUIT:
-                running = False
+        # for e in pygame.event.get():
+        #     if e.type == pygame.QUIT:
+        #         running = False
 
         """TODO Dynamic stuff here"""
         if(not hero1.at_goal()):
@@ -58,18 +68,18 @@ def run():
         rgb = np.zeros((grid_h, grid_w, 3), dtype=np.uint8)  # start black everywhere
         rgb[field == 0] = [255, 255, 255]                    # paint free cells white
 
-
         surface = pygame.surfarray.make_surface(np.transpose(rgb, (1, 0, 2)))
         scaled_surface = pygame.transform.scale(surface, (screen_w, screen_h))
 
         # screen.fill((0, 0, 0))               # optional clear (scaled_surface covers it)
         screen.blit(scaled_surface, (0, 0))    # draw at top-left
+        
         draw_grid(screen_w, screen_h, cell_size, screen)
-
         # draw hero
-        draw(cell_size, screen, hero1.get_pos(), color=hero1.color)
+        draw_hero(cell_size, screen, hero1.get_pos())
         # draw goal point
-        draw(cell_size, screen, hero1.get_goal(), color=(0, 255, 0))
+        draw_goal(cell_size, screen, hero1.get_goal())
+        # draw_hero(cell_size, screen, hero1.get_goal())
         
         pygame.display.flip()
 
