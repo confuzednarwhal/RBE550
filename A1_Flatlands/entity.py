@@ -4,6 +4,8 @@ import heapq
 from typing import Dict, List
 import random
 
+from scipy.ndimage import gaussian_filter
+
 class entity:
     def __init__(self):
         self.color: tuple[int,int,int] 
@@ -100,7 +102,7 @@ class hero(entity):
 
 
         g = {self.pos: 0.0}
-        came_from = {}
+        came_from: dict = {}
         open_set = [(heuristic(self.pos, self.goal), sr, sc)]
         closed_set = set()
 
@@ -145,9 +147,6 @@ class hero(entity):
                     # Compute f = g + h for priority queue ordering
                     f = tentative_g + heuristic((nr, nc), self.goal)
 
-                    # Push/update the neighbor in the open set
-                    # (We don’t do a decrease-key; instead we push a new entry.
-                    #  The stale one will be skipped later when popped and found in 'closed'.)
                     heapq.heappush(open_set, (f, nr, nc))
 
         # If we empty the open set without reaching the goal, no path exists
@@ -258,6 +257,22 @@ class enemy(entity):
                     #  The stale one will be skipped later when popped and found in 'closed'.)
                     heapq.heappush(open_set, (f, nr, nc))
     
+    def gen_cost_layer(shape: tuple[int,int], enemy_pos: list[tuple[int,int]], field: np.array) -> np.array:
+        free_mask = (field == 0).astype(float)
+        sigma: float = 2.0
+        weight: float = 50.0
+        ceiling = 100000
+
+        impulses = np.zeros(shape, dtype = float)
+        for row, col in enemy_pos:
+            if 0 <= row < shape[0] and 0 <= col < shape[1]:
+                impulses[row,col] += 1.0
+
+        layer = gaussian_filter(impulses, sigma=sigma, mode="nearest")
+        layer *= weight
+        layer *= free_mask
+        return np.clip(layer, 0.0, ceiling)
+
 
 
 
