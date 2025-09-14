@@ -48,6 +48,7 @@ def run():
     pygame.init()
 
     hero_next: int = 0
+    enemy_next: int = 0
 
     cell_size: int = 10
     grid_h, grid_w = field.shape
@@ -60,17 +61,23 @@ def run():
     running = True
     step = 0
 
+    # enemy1.set_goal(hero1.get_pos())
+    # enemy_path: list = enemy1.gen_path(field)
+
     while running:
-        # for e in pygame.event.get():
-        #     if e.type == pygame.QUIT:
-        #         running = False
+        enemy1.set_goal(hero1.get_pos())
+        enemy_path = enemy1.gen_path(field)
 
         """TODO Dynamic stuff here"""
-        if(not hero1.at_goal()):
+        if(hero_next < hero_path_size and not enemy1.at_goal()):
             hero1.place_hero(field, new_pos=hero_path[hero_next])
+            enemy1.place_enemy(field,new_pos=enemy_path[1])
+
             hero_next += 1
+            # enemy_next += 1
+
             step += 1
-        elif(hero1.at_goal):
+        else:
             break
 
         """Convert map to rbg colors and display it"""
@@ -95,7 +102,7 @@ def run():
         pygame.display.flip()
 
         # limit fps
-        clock.tick(4) 
+        clock.tick(20) 
 
         # interate though path
 
@@ -112,9 +119,6 @@ goal = hero1.gen_goal(field)
 start = hero1.place_hero(field, new_pos=None)
 
 start_e = enemy1.place_enemy(field, new_pos = None)
-enemy1.set_goal(hero1.get_pos())
-
-enemy_path: list = enemy1.gen_path(field)
 
 hero_path: list = hero1.gen_path(field)
 hero_path_size: int = len(hero_path)
