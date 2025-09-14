@@ -15,6 +15,8 @@ def draw_grid(screen_w, screen_h, cell_size, screen):
 def run():
     pygame.init()
 
+    hero_next: int = 0
+
     cell_size = 10
     grid_h, grid_w = field.shape
     screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
@@ -32,8 +34,13 @@ def run():
                 running = False
 
         """TODO Dynamic stuff here"""
-        step += 1
-        print(step)
+        if(not hero1.at_goal()):
+            hero1.place_hero(field, new_pos=hero_path[hero_next])
+            # print(hero1.get_pos())
+            hero_next += 1
+            step += 1
+        elif(hero1.at_goal):
+            break
 
         """Convert map to rbg colors and display it"""
         # Free cells (0) -> white [255,255,255]; walls (1) -> black [0,0,0]
@@ -49,7 +56,9 @@ def run():
         pygame.display.flip()
 
         # limit fps
-        clock.tick(30) 
+        clock.tick(4) 
+
+        # interate though path
 
     pygame.quit()
 
@@ -62,9 +71,11 @@ field = test.generate_map()
 goal = hero1.gen_goal(field)
 start = hero1.place_hero(field, new_pos=None)
 
-huh = hero1.gen_path(field)
+hero_path: list = hero1.gen_path(field)
 
-print(hero1.get_pos())
-print(hero1.get_goal())
+hero_path_size: int = len(hero_path)
 
-# run()
+# print(hero1.get_pos())
+# print(hero1.get_goal())
+
+run()

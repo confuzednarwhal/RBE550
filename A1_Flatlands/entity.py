@@ -10,7 +10,7 @@ class entity:
         # self.pos: tuple[int,int]
         # self.goal: tuple[int,int]
         self.pos: tuple[int,int] = (0,0)
-        self.goal: tuple[int,int] = (0,0)
+        self.goal: tuple[int,int] = (0,1)
         self.alive: bool = True
         self.moves = [(1,0),( -1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
 
@@ -45,6 +45,9 @@ class hero(entity):
         self.reset: int = 0
         self.teleport_lim: int = 4
     
+    def at_goal(self):
+        return self.goal == self.pos
+
     def gen_goal(self, field: np.array):
         self.goal = self.pick_pos(field)
 
@@ -55,10 +58,11 @@ class hero(entity):
         if(new_pos is None and self.reset != self.teleport_lim):
             self.pos = self.pick_pos(field)
             self.reset += 1
-        elif(self.reset != self.teleport_lim):
-            self.update_pos = new_pos
-        else:
-            return
+        elif(self.reset < self.teleport_lim):
+            self.update_pos(new_pos)
+            print("move")
+        # else:
+        #     return
 
     def enemy_prox(self, pos: tuple[int,int]) -> bool:
         # calculate enemy prox to hero
