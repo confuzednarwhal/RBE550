@@ -64,6 +64,8 @@ class hero(entity):
         self.reset: int = 0
         self.teleport_lim: int = 4
 
+    def increment_reset(self):
+        self.reset += 1
 
     def gen_goal(self, field: np.array):
         self.goal = self.pick_pos(field)
@@ -72,7 +74,7 @@ class hero(entity):
         return self.goal
 
     def place_hero(self, field: np.array, new_pos: tuple = None):
-        if(new_pos is None and self.reset != self.teleport_lim):
+        if(new_pos is None and self.reset < self.teleport_lim):
             self.pos = self.pick_pos(field)
             self.reset += 1
         elif(self.reset < self.teleport_lim):

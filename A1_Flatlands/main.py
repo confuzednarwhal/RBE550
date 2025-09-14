@@ -109,11 +109,21 @@ def run():
     clock = pygame.time.Clock()
     running = True
     step = 0
+    old_step = 0
 
     # enemy_positions = [enemy1.get_pos()]
     # enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
 
     while running:
+
+        if(step - old_step > 20):
+            hero1.place_hero(field, new_pos=None)
+
+            old_step = step
+            # hero1.increment_reset()
+            print(hero1.reset)
+
+
         enemy_positions: list = [enemy1.get_pos()]
         enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
         hero_path: list = hero1.gen_path(field, enemy_layer)
