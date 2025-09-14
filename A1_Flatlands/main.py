@@ -26,13 +26,23 @@ def draw_hero(cell_size: int, screen, coords):
 def draw_goal(cell_size: int, screen, coords):
     goal_color = (0, 255, 0)
     # coord_x, coord_y = get_cell_center(coords[0], coords[1], cell_size)
-    coord_x, coord_y = coords[0]*cell_size, coords[1]*cell_size
-    rect = pygame.Rect(coord_y, coord_x, cell_size, cell_size)
+    coord_x, coord_y = coords[1]*cell_size, coords[0]*cell_size
+    rect = pygame.Rect(coord_x, coord_y, cell_size, cell_size)
     pygame.draw.rect(screen, goal_color, rect)
 
 
-def draw_enemy():
-    return 0
+def draw_enemy(cell_size: int, screen, coords):
+    coord_x, coord_y = coords[1]*cell_size, coords[0]*cell_size 
+
+    size_ratio = int(cell_size * 0.8)
+
+    offset_x = coord_x + (cell_size - size_ratio) // 2
+    offset_y = coord_y + (cell_size - size_ratio) // 2
+
+    # print("bruh")
+
+    tri = [(offset_x + size_ratio//2, offset_y), (offset_x, offset_y + size_ratio), (offset_x + size_ratio, offset_y + size_ratio)]
+    pygame.draw.polygon(screen, enemy1.color, tri)
 
 def run():
     pygame.init()
@@ -75,11 +85,12 @@ def run():
         screen.blit(scaled_surface, (0, 0))    # draw at top-left
         
         draw_grid(screen_w, screen_h, cell_size, screen)
-        # draw hero
+        #draw hero
         draw_hero(cell_size, screen, hero1.get_pos())
         # draw goal point
         draw_goal(cell_size, screen, hero1.get_goal())
         # draw_hero(cell_size, screen, hero1.get_goal())
+        draw_enemy(cell_size, screen, enemy1.get_pos())
         
         pygame.display.flip()
 
@@ -94,12 +105,21 @@ def run():
 
 test = Enviornment.map()
 hero1 = entity.hero()
+enemy1 = entity.enemy()
 
 field = test.generate_map()
 goal = hero1.gen_goal(field)
 start = hero1.place_hero(field, new_pos=None)
 
+start_e = enemy1.place_enemy(field, new_pos = None)
+enemy1.set_goal(hero1.get_pos())
+
+enemy_path: list = enemy1.gen_path(field)
+
 hero_path: list = hero1.gen_path(field)
 hero_path_size: int = len(hero_path)
+
+# print(enemy1.get_pos())
+# print(hero1.get_pos())
 
 run()
