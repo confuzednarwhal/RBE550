@@ -66,8 +66,7 @@ def draw_text(screen, text: str):
     font = pygame.font.SysFont(None, 64)
     text_surf = font.render(text, True, (255, 255, 255))
     rect = text_surf.get_rect(center = (screen.get_width()//2, screen.get_height()//2))
-    screen.blit(text_surf, rect)
-    
+    screen.blit(text_surf, rect) 
 
 def handle_display(screen, end_game: bool, game_state: str):
     grid_h, grid_w = field.shape
@@ -166,6 +165,16 @@ def run():
         enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
         hero_path = hero1.gen_path(field, enemy_layer)
 
+        next_enemy_goal: tuple[int,int]
+
+        if not hero_path or len(hero_path) < 2:
+            # No step available; either no path or hero is already at goal.
+            # Fallback: let enemies chase the hero's CURRENT position instead.
+            next_enemy_goal = hero1.get_pos()
+        else:
+            next_enemy_goal = hero_path[1]
+
+
         for e in enemies:
             e_path: np.array[int] = []
 
@@ -173,9 +182,10 @@ def run():
                 hero1.alive = False
                 break
 
-            if(e.alive and hero_path is not None and e.pos is not None):
+            if(e.alive and e.pos is not None and hero1.alive):
                 # e.set_goal(hero1.get_pos())
-                e.set_goal(hero_path[1])
+                # if(hero_path is not None):
+                e.set_goal(next_enemy_goal)
                 e_path = e.gen_path(field)
 
             if (not e.at_goal() and e_path):

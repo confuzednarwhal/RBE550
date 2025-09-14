@@ -62,7 +62,7 @@ class hero(entity):
         # self.danger: bool = False  # enemy close
         self.color = (50, 160, 255)
         self.reset: int = 0
-        self.teleport_lim: int = 1
+        self.teleport_lim: int = 4
 
     def can_teleport(self) -> bool:
         return self.reset < self.teleport_lim
@@ -76,7 +76,7 @@ class hero(entity):
     def place_hero(self, field: np.array, new_pos: tuple = None):
         if new_pos is None:
             # Teleport only while under the limit
-            if self.reset < self.teleport_lim:
+            if self.can_teleport():
                 self.pos = self.pick_pos(field)
                 self.reset += 1
             # else: do nothing this tick (no teleport), but DO NOT block normal moves elsewhere
@@ -182,13 +182,7 @@ class enemy(entity):
     def __init__(self):
         super().__init__()
         self.color = (255, 0, 0)
-        self.obstacle: bool = False  #even necessary?
 
-    def update_perimeter():
-        return 0
-    
-    # def is_Dead()
-    
     def set_goal(self, hero_pos):
         self.goal = hero_pos
 
@@ -208,6 +202,7 @@ class enemy(entity):
         gr, gc = self.goal
         if blocked[sr, sc] or blocked[gr, gc]:
             print("path blocked")
+            self.alive = False
             return None
         if self.pos == self.goal:
             return [self.pos]
@@ -275,8 +270,3 @@ class enemy(entity):
                     # Compute f = g + h for priority queue ordering
                     f = tentative_g + heuristic((nr, nc), self.goal)
                     heapq.heappush(open_set, (f, nr, nc))
-    
-
-
-
-
