@@ -3,6 +3,7 @@ import entity
 import numpy as np
 import pygame
 
+
 def draw_grid(screen_w, screen_h, cell_size, screen):
     # --- Draw grid lines ---
     # Vertical lines
@@ -11,6 +12,17 @@ def draw_grid(screen_w, screen_h, cell_size, screen):
     # Horizontal lines
     for y in range(0, screen_h, cell_size):
         pygame.draw.line(screen, (200, 200, 200), (0, y), (screen_w, y), 1)
+
+def get_cell_center(row: int, col: int, cell_size: int) -> tuple[int,int]:
+    x = col * cell_size + cell_size // 2
+    y = row * cell_size + cell_size // 2
+    return (x, y)
+
+def draw(cell_size: int, screen, coord: tuple[int,int], color: tuple[int,int,int]):
+    coord_x, coord_y = get_cell_center(coord[0], coord[1], cell_size)
+    coord_r = max(2, cell_size // 2 - 1)
+    pygame.draw.circle(screen, color, (coord_x, coord_y), coord_r)
+
 
 def run():
     pygame.init()
@@ -36,7 +48,6 @@ def run():
         """TODO Dynamic stuff here"""
         if(not hero1.at_goal()):
             hero1.place_hero(field, new_pos=hero_path[hero_next])
-            # print(hero1.get_pos())
             hero_next += 1
             step += 1
         elif(hero1.at_goal):
@@ -47,12 +58,19 @@ def run():
         rgb = np.zeros((grid_h, grid_w, 3), dtype=np.uint8)  # start black everywhere
         rgb[field == 0] = [255, 255, 255]                    # paint free cells white
 
+
         surface = pygame.surfarray.make_surface(np.transpose(rgb, (1, 0, 2)))
         scaled_surface = pygame.transform.scale(surface, (screen_w, screen_h))
 
         # screen.fill((0, 0, 0))               # optional clear (scaled_surface covers it)
         screen.blit(scaled_surface, (0, 0))    # draw at top-left
         draw_grid(screen_w, screen_h, cell_size, screen)
+
+        # draw hero
+        draw(cell_size, screen, hero1.get_pos(), color=hero1.color)
+        # draw goal point
+        draw(cell_size, screen, hero1.get_goal(), color=(0, 255, 0))
+        
         pygame.display.flip()
 
         # limit fps
@@ -72,10 +90,6 @@ goal = hero1.gen_goal(field)
 start = hero1.place_hero(field, new_pos=None)
 
 hero_path: list = hero1.gen_path(field)
-
 hero_path_size: int = len(hero_path)
-
-# print(hero1.get_pos())
-# print(hero1.get_goal())
 
 run()

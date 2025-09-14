@@ -6,7 +6,7 @@ import random
 
 class entity:
     def __init__(self):
-        self.color: str = ""
+        self.color: tuple[int,int,int] 
         # self.pos: tuple[int,int]
         # self.goal: tuple[int,int]
         self.pos: tuple[int,int] = (0,0)
@@ -41,7 +41,7 @@ class hero(entity):
     def __init__(self):
         super().__init__()
         self.danger: bool = False  # enemy close
-        self.color = "blue"
+        self.color = (50, 160, 255)
         self.reset: int = 0
         self.teleport_lim: int = 4
     
@@ -60,7 +60,7 @@ class hero(entity):
             self.reset += 1
         elif(self.reset < self.teleport_lim):
             self.update_pos(new_pos)
-            print("move")
+            # print("move")
         # else:
         #     return
 
