@@ -38,8 +38,22 @@ class entity:
                 break
         return new_pos
     
-    def gen_trajectory(self):
-        return 0
+    def gen_cost_layer(self, field: np.array, enemy_pos: list[tuple[int,int]]) -> np.array:
+        free_mask = (field == 0).astype(float)
+        sigma: float = 2.0
+        weight: float = 50.0
+        ceiling = 100000
+
+        impulses = np.zeros(field.shape, dtype = float)
+        for row, col in enemy_pos:
+            if 0 <= row < field.shape[0] and 0 <= col < field.shape[1]:
+                impulses[row,col] += 1.0
+
+        layer = gaussian_filter(impulses, sigma=sigma, mode="nearest")
+        layer *= weight
+        layer *= free_mask
+        return np.clip(layer, 0.0, ceiling)
+
     
 class hero(entity):
 
@@ -71,7 +85,7 @@ class hero(entity):
         # calculate enemy prox to hero
         return 0
     
-    def gen_path(self, field: np.array) -> np.array:
+    def gen_path(self, field: np.array, cell_cost: np.ndarray) -> np.array:
         field_row, field_cols = field.shape
         blocked = field !=0
 
@@ -82,6 +96,12 @@ class hero(entity):
             return None
         if self.pos == self.goal:
             return [self.pos]
+
+        def penalty_at(row: int, col: int) -> float:
+            if (not cell_cost is None):
+                return float(cell_cost[row, col])
+            else:
+                return 0
     
         def heuristic(a, b):
             # Octile distance: good for 8-direction grids
@@ -111,15 +131,14 @@ class hero(entity):
             if (r, c) in closed_set:
                 continue
             closed_set.add((r, c))
-        # If we reached the goal, reconstruct and return the path
+            # If we reached the goal, reconstruct and return the path
             if (r, c) == self.goal:
                 path = [(r, c)]
-            # Walk backwards from goal to start using came_from
+                # Walk backwards from goal to start using came_from
                 while (r, c) != self.pos:
                     r, c = came_from[(r, c)]
                     path.append((r, c))
-            # Reverse to get start -> goal order
-
+                # Reverse to get start -> goal order
                 return path[::-1]
         
 
@@ -135,8 +154,12 @@ class hero(entity):
                 if (nr, nc) in closed_set:
                     continue
 
+                # calculate costs
+                base_cost = move_cost(dr,dc)
+                enemy_cost = (penalty_at(r,c) + penalty_at(nr, nc))/2 # average enemy penalty with neighbor
+                
                 # Calculate the tentative new g-cost via current cell
-                tentative_g = g[(r, c)] + move_cost(dr, dc)
+                tentative_g = g[(r, c)] + move_cost(dr, dc) + base_cost + enemy_cost
 
                 # If this path to (nr, nc) is better than any previously found, record it
                 if tentative_g < g.get((nr, nc), float('inf')):
@@ -197,9 +220,9 @@ class enemy(entity):
 
         def move_cost(dr, dc): #TODO: Add enemy avoidance here
             #Straight = 1, diagonal = sqrt(2)
-            # if(dr != 0 and dc != 0):
-            #     return math.sqrt(2) 
-            # else:
+            if(dr != 0 and dc != 0):
+                return math.sqrt(2) 
+            else:
                 return 1.0
         
         def in_bounds(r, c):
@@ -219,11 +242,11 @@ class enemy(entity):
             # If we reached the goal, reconstruct and return the path
             if (r, c) == self.goal:
                 path = [(r, c)]
-            # Walk backwards from goal to start using came_from
+                # Walk backwards from goal to start using came_from
                 while (r, c) != self.pos:
                     r, c = came_from[(r, c)]
                     path.append((r, c))
-            # Reverse to get start -> goal order
+                    # Reverse to get start -> goal order
 
                 return path[::-1]
         
@@ -251,27 +274,8 @@ class enemy(entity):
 
                     # Compute f = g + h for priority queue ordering
                     f = tentative_g + heuristic((nr, nc), self.goal)
-
-                    # Push/update the neighbor in the open set
-                    # (We don’t do a decrease-key; instead we push a new entry.
-                    #  The stale one will be skipped later when popped and found in 'closed'.)
                     heapq.heappush(open_set, (f, nr, nc))
     
-    def gen_cost_layer(shape: tuple[int,int], enemy_pos: list[tuple[int,int]], field: np.array) -> np.array:
-        free_mask = (field == 0).astype(float)
-        sigma: float = 2.0
-        weight: float = 50.0
-        ceiling = 100000
-
-        impulses = np.zeros(shape, dtype = float)
-        for row, col in enemy_pos:
-            if 0 <= row < shape[0] and 0 <= col < shape[1]:
-                impulses[row,col] += 1.0
-
-        layer = gaussian_filter(impulses, sigma=sigma, mode="nearest")
-        layer *= weight
-        layer *= free_mask
-        return np.clip(layer, 0.0, ceiling)
 
 
 

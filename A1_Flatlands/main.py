@@ -4,6 +4,7 @@ import numpy as np
 import pygame
 
 test = Enviornment.map()
+base_entity = entity.entity()
 hero1 = entity.hero()
 enemy1 = entity.enemy()
 field = test.generate_map()
@@ -91,10 +92,10 @@ def run():
 
     start_e = enemy1.place_enemy(field, new_pos = None)
 
-    hero_path: list = hero1.gen_path(field)
-    hero_path_size: int = len(hero_path)
-    hero_next: int = 0
-    enemy_next: int = 0
+    # hero_path: list = hero1.gen_path(field)
+    # hero_path_size: int = len(hero_path)
+    # hero_next: int = 0
+    # enemy_next: int = 0
 
     """
     cell_size: int = 10
@@ -109,17 +110,26 @@ def run():
     running = True
     step = 0
 
+    # enemy_positions = [enemy1.get_pos()]
+    # enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
+
     while running:
+        enemy_positions: list = [enemy1.get_pos()]
+        enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
+        hero_path: list = hero1.gen_path(field, enemy_layer)
+
         if(enemy1.alive):
             enemy1.set_goal(hero1.get_pos())
             enemy_path = enemy1.gen_path(field)
 
         """TODO Dynamic stuff here"""
-        if(hero_next < hero_path_size and not enemy1.at_goal()):
-            hero1.place_hero(field, new_pos=hero_path[hero_next])
+        if(not hero1.at_goal() and not enemy1.at_goal()):
+
+            hero1.place_hero(field, new_pos=hero_path[1])
+
             if(enemy1.alive and field[enemy_path[1]] == 0):
                 enemy1.place_enemy(field,new_pos=enemy_path[1])
-            elif(enemy1.alive):
+            elif(enemy1.alive and field[enemy_path[1]] != 0):
                 field[enemy_path[0]] = 1
                 enemy1.alive = False
         else:
@@ -151,10 +161,10 @@ def run():
         """
 
         # limit fps
-        clock.tick(2) 
+        clock.tick(10) 
 
         # interate though path
-        hero_next += 1
+        # hero_next += 1
         step += 1
 
     pygame.quit()
