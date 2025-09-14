@@ -1,14 +1,19 @@
 import numpy as np
+import math
+import heapq
 from typing import Dict, List
 
 class entity:
     def __init__(self):
-        self.pos: np.array = []
         self.color: str = ""
-        self.goal: np.array = []
+        #self.pos: tuple[int,int]
+        #self.goal: tuple[int,int]
+        self.pos: tuple[int,int] = (0, 0)
+        self.goal: tuple[int,int] = (50,24)
         self.alive: bool = True
+        self.moves = [(1,0),( -1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
 
-    def get_pos(self) -> np.array:
+    def get_pos(self) -> tuple[int,int]:
         return self.pos
     
     def update_pos(self):
@@ -23,12 +28,100 @@ class entity:
     
 class hero(entity):
     def __init__(self):
+        super().__init__()
         self.danger: bool = False  # enemy close
         self.color = "blue"
 
-    def enemy_prox(self, pos: np.array) -> bool:
+    def enemy_prox(self, pos: tuple[int,int]) -> bool:
         # calculate enemy prox to hero
         return 0
+    
+    def gen_path(self, field: np.array) -> np.array:
+        field_row, field_cols = field.shape
+        blocked = field !=0
+
+        sr, sc = self.pos
+        gr, gc = self.goal
+        if blocked[sr, sc] or blocked[gr, gc]:
+            print("path blocked")
+            return None
+        if self.pos == self.goal:
+            return [self.pos]
+    
+        
+        def heuristic(a, b):
+            # Octile distance: good for 8-direction grids
+            dx = abs(a[0] - b[0])
+            dy = abs(a[1] - b[1])
+            return dx + dy + (math.sqrt(2) - 2) * min(dx, dy)
+
+        def move_cost(dr, dc): #TODO: Add enemy avoidance here
+            #Straight = 1, diagonal = sqrt(2)
+            if(dr != 0 and dc != 0):
+                return math.sqrt(2) 
+            else:
+                return 1.0
+        
+        def in_bounds(r, c):
+            return 0 <= r < field_row and 0 <= c < field_cols
+            
+
+
+        g = {self.pos: 0.0}
+        came_from = {}
+        open_set = [(heuristic(self.pos, self.goal), sr, sc)]
+        closed_set = set()
+
+        while(open_set):
+            _, r, c = heapq.heappop(open_set)
+            if (r, c) in closed_set:
+                continue
+            closed_set.add((r, c))
+        # If we reached the goal, reconstruct and return the path
+            if (r, c) == self.goal:
+                path = [(r, c)]
+            # Walk backwards from goal to start using came_from
+                while (r, c) != self.pos:
+                    r, c = came_from[(r, c)]
+                    path.append((r, c))
+            # Reverse to get start -> goal order
+
+                return path[::-1]
+        
+
+            # Otherwise, consider all valid neighbors
+            for dr, dc in self.moves:
+                nr, nc = r + dr, c + dc
+
+                # Skip neighbors that are out of bounds or blocked
+                if not in_bounds(nr, nc) or blocked[nr, nc]:
+                    continue
+
+                # Skip if we already finalized this neighbor
+                if (nr, nc) in closed_set:
+                    continue
+
+                # Calculate the tentative new g-cost via current cell
+                tentative_g = g[(r, c)] + move_cost(dr, dc)
+
+                # If this path to (nr, nc) is better than any previously found, record it
+                if tentative_g < g.get((nr, nc), float('inf')):
+                    # print("huh")
+                    g[(nr, nc)] = tentative_g
+                    came_from[(nr, nc)] = (r, c)
+
+                    # Compute f = g + h for priority queue ordering
+                    f = tentative_g + heuristic((nr, nc), self.goal)
+
+                    # Push/update the neighbor in the open set
+                    # (We don’t do a decrease-key; instead we push a new entry.
+                    #  The stale one will be skipped later when popped and found in 'closed'.)
+                    heapq.heappush(open_set, (f, nr, nc))
+
+        # If we empty the open set without reaching the goal, no path exists
+        return None
+
+
 
 
 class enemy(entity):

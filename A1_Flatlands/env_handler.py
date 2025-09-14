@@ -95,18 +95,12 @@ class map:
         
         return self.field
     
-    def update_map(self, location: np.array = []):
-        if location:
+    # def update_map(self, location: np.array = []):
+    #     if location:
 
-
-        
-
-
-
-
-
-    def display_field(self):
+    def display_field(self, path):
         H, W = self.field.shape
+
         plt.figure(figsize=(10, 10))
         plt.imshow(self.field, cmap="gray_r")
         # draw grid lines
@@ -114,6 +108,14 @@ class map:
             plt.axhline(row - 0.5, linewidth=0.5)
         for col in range(W + 1):
             plt.axvline(col - 0.5, linewidth=0.5)
+
+        if(path is not None):
+            path = np.asarray(path) 
+            rows, cols = path[:,0], path[:,1]
+            plt.plot(cols, rows, 'b-', linewidth=2)      # blue line
+            plt.plot(cols, rows, 'bo', markersize=4)     # blue dots
+            plt.plot(cols[0], rows[0], 'go', markersize=8, label="Start")  # green start
+            plt.plot(cols[-1], rows[-1], 'ro', markersize=8, label="Goal") # red goal
 
         plt.title("test")
         plt.xticks([]); plt.yticks([])
