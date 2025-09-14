@@ -165,12 +165,16 @@ class enemy(entity):
     def update_perimeter():
         return 0
     
+    # def is_Dead()
+    
     def set_goal(self, hero_pos):
         self.goal = hero_pos
 
     def place_enemy(self, field: np.array, new_pos: tuple = None):
         if(new_pos is None):
             self.update_pos(self.pick_pos(field))
+        elif(not self.alive):
+            return 0
         else:
             self.update_pos(new_pos)
 
@@ -230,7 +234,7 @@ class enemy(entity):
                 nr, nc = r + dr, c + dc
 
                 # Skip neighbors that are out of bounds or blocked
-                if not in_bounds(nr, nc) or blocked[nr, nc]:
+                if not in_bounds(nr, nc): # or blocked[nr, nc]:
                     continue
 
                 # Skip if we already finalized this neighbor
