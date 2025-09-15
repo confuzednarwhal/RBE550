@@ -121,10 +121,7 @@ def run():
     enemy_layer: np.array
 
     for e in enemies:
-        # e.pos = e.place_enemy(field, new_pos = None)
         e.place_enemy(field, new_pos = None)
-        # pos = e.get_pos()
-        # if pos is not None:
         enemy_positions.append(e.get_pos())
 
     clock = pygame.time.Clock()
@@ -158,7 +155,7 @@ def run():
         else:
             next_enemy_goal = hero_path[1]
 
-
+        enemy_index = 0
         for e in enemies:
             e_path: np.array[int] = []
 
@@ -167,20 +164,19 @@ def run():
                 break
 
             if(e.alive and e.pos is not None and hero1.alive):
-                # e.set_goal(hero1.get_pos())
-                # if(hero_path is not None):
                 e.set_goal(next_enemy_goal)
                 e_path = e.gen_path(field)
 
             if (not e.at_goal() and e_path):
                 if (e.alive and field[e_path[1]] == 0):
                     e.place_enemy(field, new_pos = e_path[1])
+                    enemy_positions[enemy_index]=(e.get_pos())
                     # print("here")
                 elif (e.alive and field[e_path[1]] == 1):
                     field[e_path[0]] = 1
                     e.alive = False
-                    # print("cmon")
-                    # e.place_enemy(field, new_pose = e_path[1])
+
+            enemy_index+=1
             
 
         """TODO Dynamic stuff here"""

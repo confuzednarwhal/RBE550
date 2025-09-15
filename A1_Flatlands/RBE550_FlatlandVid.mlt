@@ -1,0 +1,19 @@
+<?xml version="1.0" standalone="no"?>
+<mlt LC_NUMERIC="C" version="7.4.0" title="Shotcut version 22.01.30">
+  <profile description="automatic" width="1040" height="1044" progressive="1" sample_aspect_num="1" sample_aspect_den="1" display_aspect_num="260" display_aspect_den="261" frame_rate_num="60" frame_rate_den="1" colorspace="709"/>
+  <chain id="chain0" title="Shotcut version 22.01.30" in="00:00:05.067" out="00:00:09.283">
+    <property name="length">00:00:11.117</property>
+    <property name="eof">pause</property>
+    <property name="resource">/home/soumaya/Videos/Screencasts/Screencast from 09-14-2025 09:31:12 PM.webm</property>
+    <property name="mlt_service">avformat-novalidate</property>
+    <property name="seekable">1</property>
+    <property name="audio_index">-1</property>
+    <property name="video_index">0</property>
+    <property name="mute_on_pause">0</property>
+    <property name="shotcut:hash">00f3ff1840359a328029cbeb3e86f62f</property>
+    <property name="ignore_points">0</property>
+    <property name="shotcut:caption">Screencast from 09-14-2025 09:31:12 PM.webm</property>
+    <property name="shotcut:projectAudioChannels">2</property>
+    <property name="shotcut:projectFolder">0</property>
+  </chain>
+</mlt>

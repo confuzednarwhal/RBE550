@@ -39,7 +39,7 @@ class entity:
     def gen_cost_layer(self, field: np.array, enemy_pos: list[tuple[int,int]]) -> np.array:
         free_mask = (field == 0).astype(float)
         sigma: float = 2.0
-        weight: float = 50.0
+        weight: float = 500.0
         ceiling = 100000
 
         impulses = np.zeros(field.shape, dtype = float)
@@ -64,12 +64,12 @@ class hero(entity):
 
     def can_teleport(self) -> bool:
         return self.reset < self.teleport_lim
+    
+    def get_goal(self) -> tuple[int,int]:
+        return self.goal
 
     def gen_goal(self, field: np.array):
         self.goal = self.pick_pos(field)
-
-    def get_goal(self):
-        return self.goal
 
     def place_hero(self, field: np.array, new_pos: tuple = None):
         if new_pos is None:
@@ -81,10 +81,6 @@ class hero(entity):
             return
         self.update_pos(new_pos)
 
-    def enemy_prox(self, pos: tuple[int,int]) -> bool:
-        # calculate enemy prox to hero
-        return 0
-    
     def gen_path(self, field: np.array, cell_cost: np.ndarray) -> np.array:
         field_row, field_cols = field.shape
         blocked = field !=0
@@ -172,7 +168,6 @@ class hero(entity):
 
         # If we empty the open set without reaching the goal, no path exists
         return None
-
 
 
 
