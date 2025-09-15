@@ -8,9 +8,7 @@ from scipy.ndimage import gaussian_filter
 
 class entity:
     def __init__(self):
-        self.color: tuple[int,int,int] 
-        # self.pos: tuple[int,int]
-        # self.goal: tuple[int,int]
+        self.color: tuple[int,int,int]
         self.pos: tuple[int,int] = (0,0)
         self.goal: tuple[int,int] = (0,1)
         self.alive: bool = True

@@ -127,22 +127,6 @@ def run():
         # if pos is not None:
         enemy_positions.append(e.get_pos())
 
-    # start_e = enemy1.place_enemy(field, new_pos = None)
-
-    # hero_path: list = hero1.gen_path(field)
-    # hero_path_size: int = len(hero_path)
-    # hero_next: int = 0
-    # enemy_next: int = 0
-
-    """
-    cell_size: int = 10
-    grid_h, grid_w = field.shape
-    screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
-
-    screen = pygame.display.set_mode((screen_w,screen_h))
-    surface = pygame.surfarray.make_surface(field)
-    """
-
     clock = pygame.time.Clock()
     running = True
     step = 0
@@ -157,7 +141,7 @@ def run():
             if event.type == pygame.QUIT:
                 running = False
 
-        if(step - old_step > 10):
+        if(step - old_step > 20):
             hero1.place_hero(field, new_pos=None)
             old_step = step
 
@@ -215,15 +199,13 @@ def run():
 
         handle_display(screen, end_game, game_state)
         # limit fps
-        clock.tick(10) 
+        clock.tick(6) 
         # interate though path
         step += 1
 
 
     # pygame.time.wait(2000)
     pygame.quit()
-
-
 
 
 run()
