@@ -15,6 +15,9 @@ cell_size: int = 15
 grid_h, grid_w = field.shape
 screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
 
+"""
+Handles all the displays stuff
+"""
 # Used ChatGPT to help with display and its helpers
 def draw_grid(screen):
     # --- Draw grid lines ---
@@ -100,6 +103,11 @@ def handle_display(screen, end_game: bool, game_state: str):
     pygame.display.flip() 
 
 
+"""
+COntrols the actual game and game logic
+Uses classes found in entity and env_handler
+"""
+
 def run():
     pygame.init()
     pygame.font.init()
@@ -111,6 +119,7 @@ def run():
     game_state: str = "" # message to display at the end game
 
     # init hero and enemy goal, start, and enemy positions
+    # places hero and all the enemies
     hero1.gen_goal(field)
     hero1.place_hero(field, new_pos=None)
 
