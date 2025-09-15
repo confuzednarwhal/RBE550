@@ -107,13 +107,13 @@ class hero(entity):
                 return 0
     
         def heuristic(a, b):
-            # Octile distance: good for 8-direction grids
+            #octile schenanigans
             dx = abs(a[0] - b[0])
             dy = abs(a[1] - b[1])
             return dx + dy + (math.sqrt(2) - 2) * min(dx, dy)
 
         def move_cost(dr, dc): #TODO: Add enemy avoidance here
-            #Straight = 1, diagonal = sqrt(2)
+            #straight = 1, diagonal = sqrt(2)
             if(dr != 0 and dc != 0):
                 return math.sqrt(2) 
             else:
@@ -150,7 +150,6 @@ class hero(entity):
                 # skip neighbors that are out of bounds or blocked
                 if(not in_bounds(nr, nc) or blocked[nr, nc]):
                     continue
-
                 # skip if we already finalized this neighbor
                 if ((nr, nc) in closed_set):
                     continue
@@ -162,13 +161,13 @@ class hero(entity):
                 # calculate the tentative new g-cost via current cell
                 tentative_g = g[(r, c)] + move_cost(dr, dc) + base_cost + enemy_cost
 
-                # if this path to (nr, nc) is better than any previously found, record it
+                # if this path is better than any previously found, record it
                 if (tentative_g < g.get((nr, nc), float('inf'))):
                     # print("huh")
                     g[(nr, nc)] = tentative_g
                     came_from[(nr, nc)] = (r, c)
 
-                    # compute f = g + h for priority queue ordering
+                    #priority queue ordering
                     f = tentative_g + heuristic((nr, nc), self.goal)
 
                     heapq.heappush(open_set, (f, nr, nc))
@@ -184,6 +183,7 @@ class enemy(entity):
     def set_goal(self, hero_pos):
         self.goal = hero_pos
 
+    # places enemy in field when its alive
     def place_enemy(self, field: np.array, new_pos: tuple = None):
         if(new_pos is None):
             self.update_pos(self.pick_pos(field))
@@ -194,30 +194,32 @@ class enemy(entity):
 
     def gen_path(self, field: np.array) -> np.array:
         field_row, field_cols = field.shape
-        blocked = field !=0
+        blocked = field != 0
 
         sr, sc = self.pos
         gr, gc = self.goal
-        if blocked[sr, sc] or blocked[gr, gc]:
+
+        # check if cell blocked
+        if (blocked[sr, sc] or blocked[gr, gc]):
             print("path blocked")
             self.alive = False
             return None
-        if self.pos == self.goal:
+        if(self.pos == self.goal):
             return [self.pos]
     
         def heuristic(a, b):
-            # Octile distance: good for 8-direction grids
+            # octile
             dx = abs(a[0] - b[0])
             dy = abs(a[1] - b[1])
             return dx + dy + (math.sqrt(2) - 2) * min(dx, dy)
 
         def move_cost(dr, dc): #TODO: Add enemy avoidance here
-            #Straight = 1, diagonal = sqrt(2)
             if(dr != 0 and dc != 0):
                 return math.sqrt(2) 
             else:
                 return 1.0
         
+        # check if in bounds in field
         def in_bounds(r, c):
             return 0 <= r < field_row and 0 <= c < field_cols
             
@@ -229,42 +231,40 @@ class enemy(entity):
 
         while(open_set):
             _, r, c = heapq.heappop(open_set)
-            if (r, c) in closed_set:
+            if ((r, c) in closed_set):
                 continue
             closed_set.add((r, c))
-            # If we reached the goal, reconstruct and return the path
-            if (r, c) == self.goal:
+            # if we reached the goal, reconstruct and return the path
+            if((r, c) == self.goal):
                 path = [(r, c)]
-                # Walk backwards from goal to start using came_from
+                # walk backwards from goal to start using came_from
                 while (r, c) != self.pos:
                     r, c = came_from[(r, c)]
                     path.append((r, c))
-                    # Reverse to get start -> goal order
-
+                    # reverse to get start -> goal order
                 return path[::-1]
         
 
-            # Otherwise, consider all valid neighbors
+            # otherwise, consider all valid neighbors
             for dr, dc in self.moves:
                 nr, nc = r + dr, c + dc
 
-                # Skip neighbors that are out of bounds or blocked
+                # kkip neighbors that are out of bounds or blocked
                 if not in_bounds(nr, nc): # or blocked[nr, nc]:
                     continue
-
-                # Skip if we already finalized this neighbor
+                # skip if we already finalized this neighbor
                 if (nr, nc) in closed_set:
                     continue
 
-                # Calculate the tentative new g-cost via current cell
+                # calculate the tentative new g-cost via current cell
                 tentative_g = g[(r, c)] + move_cost(dr, dc)
 
-                # If this path to (nr, nc) is better than any previously found, record it
+                # if this path is better than any previously found, record it
                 if tentative_g < g.get((nr, nc), float('inf')):
                     # print("huh")
                     g[(nr, nc)] = tentative_g
                     came_from[(nr, nc)] = (r, c)
 
-                    # Compute f = g + h for priority queue ordering
+                    # priority queue ordering
                     f = tentative_g + heuristic((nr, nc), self.goal)
                     heapq.heappush(open_set, (f, nr, nc))

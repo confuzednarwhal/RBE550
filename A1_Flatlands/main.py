@@ -11,13 +11,11 @@ field = test.generate_map()
 
 enemies = [entity.enemy() for _ in range(10)]   
 
-
 cell_size: int = 15
 grid_h, grid_w = field.shape
 screen_h, screen_w = grid_h*cell_size, grid_h*cell_size
 
-# surface = pygame.surfarray.make_surface(field)
-
+# Used ChatGPT to help with display and its helpers
 def draw_grid(screen):
     # --- Draw grid lines ---
     # Vertical lines
@@ -72,7 +70,6 @@ def handle_display(screen, end_game: bool, game_state: str):
     grid_h, grid_w = field.shape
     screen_h, screen_w = grid_h * cell_size, grid_w * cell_size
     
-    """Convert map to rbg colors and display it"""
     # Free cells (0) -> white [255,255,255]; walls (1) -> black [0,0,0]
     rgb = np.zeros((grid_h, grid_w, 3), dtype=np.uint8)  # start black everywhere
     rgb[field == 0] = [255, 255, 255]                    # paint free cells white
@@ -111,9 +108,9 @@ def run():
     pygame.display.set_caption("Flatlanders")
 
     end_game = False  # flag to kill the game
-    game_state: str = ""
+    game_state: str = "" # message to display at the end game
 
-    # field = test.generate_map()
+    # init hero and enemy goal, start, and enemy positions
     hero1.gen_goal(field)
     hero1.place_hero(field, new_pos=None)
 
@@ -129,28 +126,30 @@ def run():
     step = 0
     old_step = 0
 
-    # enemy_positions = [enemy1.get_pos()]
+    # create the first cost layer for hero pathing
     enemy_layer: np.array = base_entity.gen_cost_layer(field, enemy_positions)
 
     while running:
-
+        # for easy window killing
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
+        # teleports hero if possible every __ ticks
         if(step - old_step > 20):
             hero1.place_hero(field, new_pos=None)
             old_step = step
 
-        # enemy_positions: list = [enemy1.get_pos()]
+        # recalculates enemy cost layer for hero pathing
+        # path plan for hero
         enemy_layer = base_entity.gen_cost_layer(field, enemy_positions)
         hero_path = hero1.gen_path(field, enemy_layer)
 
+        # fix to stop enemy from suffocating in walls but not turning into debris
+        # as well as index issues
         next_enemy_goal: tuple[int,int]
 
         if not hero_path or len(hero_path) < 2:
-            # No step available; either no path or hero is already at goal.
-            # Fallback: let enemies chase the hero's CURRENT position instead.
             next_enemy_goal = hero1.get_pos()
         else:
             next_enemy_goal = hero_path[1]
