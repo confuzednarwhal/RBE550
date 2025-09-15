@@ -15,6 +15,7 @@ TETRIMINOS: Dict[str, np.array] = {
                    [1, 1, 1]], dtype=np.uint8),
 }
 
+# handles all the shape rotations for tetriminos
 def rotate_shape(shape: np.array) -> np.array:
     rotations = []
     isDuplicate = False
@@ -31,6 +32,7 @@ def rotate_shape(shape: np.array) -> np.array:
 
     return rotations
 
+# builds dictionary of the rotations once, so no need to recompute each time
 def build_rotations(shapes: Dict[str, np.array]) -> Dict[str, np.array]:
     rotations: Dict[str, List[np.array]] = {}
 
@@ -39,6 +41,7 @@ def build_rotations(shapes: Dict[str, np.array]) -> Dict[str, np.array]:
 
     return rotations
 
+# dict of all the potential rotations
 TETRIMINO_ROTATIONS = build_rotations(TETRIMINOS)
 
 
@@ -56,6 +59,7 @@ class map:
     def get_map(self) -> np.array:
         return self.field
 
+    # picks a random rotated tetrimino
     def pick_tetrimino(self):
         rot: np.array = []
         name = self.rng.choice(list(self.rotations.keys()))
@@ -90,14 +94,14 @@ class map:
             c = random.randint(0, self.num_cols - 1)
 
             # places shape if it fits within field bounds
-            if self.can_place(shape, r, c):
+            if(self.can_place(shape, r, c)):
                 self.place_shape(shape, r, c)
         
         return self.field
     
-    # def update_map(self, location: np.array = []):
-    #     if location:
 
+    # not used in this game, used to initially visualize path
+    # made with help from ChatGPT
     def display_field(self, path):
         H, W = self.field.shape
 

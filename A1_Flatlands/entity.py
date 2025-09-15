@@ -8,11 +8,11 @@ from scipy.ndimage import gaussian_filter
 
 class entity:
     def __init__(self):
-        self.color: tuple[int,int,int]
-        self.pos: tuple[int,int] = (0,0)
-        self.goal: tuple[int,int] = (0,1)
+        self.color: tuple[int,int,int] # just for drawing to screen
+        self.pos: tuple[int,int] = (0,0) # current position
+        self.goal: tuple[int,int] = (0,1) # goal position
         self.alive: bool = True
-        self.moves = [(1,0),( -1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
+        self.moves = [(1,0),( -1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)] #all potential moves around a pos
 
     def get_pos(self) -> tuple[int,int]:
         return self.pos
@@ -23,6 +23,7 @@ class entity:
     def update_pos(self, position: tuple[int,int]):
         self.pos = position
 
+    # picks a random pos within the field
     def pick_pos(self, field: np.array) -> tuple[int,int]:
         try_place = True
         num_rows, num_cols = field.shape
@@ -36,6 +37,8 @@ class entity:
                 break
         return new_pos
     
+    # generates a cost layer (gaussian kernel) for hero path planning from enemy positions
+    # ChatGPT helped here
     def gen_cost_layer(self, field: np.array, enemy_pos: list[tuple[int,int]]) -> np.array:
         free_mask = (field == 0).astype(float)
         sigma: float = 2.0
@@ -44,7 +47,7 @@ class entity:
 
         impulses = np.zeros(field.shape, dtype = float)
         for row, col in enemy_pos:
-            if 0 <= row < field.shape[0] and 0 <= col < field.shape[1]:
+            if( 0 <= row < field.shape[0] and 0 <= col < field.shape[1]):
                 impulses[row,col] += 1.0
 
         layer = gaussian_filter(impulses, sigma=sigma, mode="nearest")
@@ -57,40 +60,44 @@ class hero(entity):
 
     def __init__(self):
         super().__init__()
-        # self.danger: bool = False  # enemy close
         self.color = (50, 160, 255)
         self.reset: int = 0
         self.teleport_lim: int = 4
 
+    # checks if we ran out of teleports
     def can_teleport(self) -> bool:
         return self.reset < self.teleport_lim
-    
+
     def get_goal(self) -> tuple[int,int]:
         return self.goal
 
+    # generates a random goal
     def gen_goal(self, field: np.array):
         self.goal = self.pick_pos(field)
 
+    # places a hero in the field
+    # if no new pos is provided, assumes it wants to be teleported somewhere
     def place_hero(self, field: np.array, new_pos: tuple = None):
-        if new_pos is None:
-            # Teleport only while under the limit
-            if self.can_teleport():
+        if(new_pos is None):
+            # teleport only while under the limit
+            if(self.can_teleport()):
                 self.pos = self.pick_pos(field)
                 self.reset += 1
-            # else: do nothing this tick (no teleport), but DO NOT block normal moves elsewhere
             return
         self.update_pos(new_pos)
 
+    # runs A* planning for hero entity
+    # ChatGPT helped here, especially with gaussian kernel cost stuff
     def gen_path(self, field: np.array, cell_cost: np.ndarray) -> np.array:
         field_row, field_cols = field.shape
         blocked = field !=0
 
         sr, sc = self.pos
         gr, gc = self.goal
-        if blocked[sr, sc] or blocked[gr, gc]:
+        if(blocked[sr, sc] or blocked[gr, gc]):
             # print("path blocked")
             return None
-        if self.pos == self.goal:
+        if (self.pos == self.goal):
             return [self.pos]
 
         def penalty_at(row: int, col: int) -> float:
@@ -122,51 +129,49 @@ class hero(entity):
 
         while(open_set):
             _, r, c = heapq.heappop(open_set)
-            if (r, c) in closed_set:
+            if ((r, c) in closed_set):
                 continue
             closed_set.add((r, c))
-            # If we reached the goal, reconstruct and return the path
-            if (r, c) == self.goal:
+            # if we reached the goal, reconstruct and return the path
+            if ((r, c) == self.goal):
                 path = [(r, c)]
-                # Walk backwards from goal to start using came_from
-                while (r, c) != self.pos:
+                # walk backwards from goal to start using came_from
+                while ((r, c) != self.pos):
                     r, c = came_from[(r, c)]
                     path.append((r, c))
-                # Reverse to get start -> goal order
+                # reverse to get start -> goal order
                 return path[::-1]
         
 
-            # Otherwise, consider all valid neighbors
+            # otherwise, consider all valid neighbors
             for dr, dc in self.moves:
                 nr, nc = r + dr, c + dc
 
-                # Skip neighbors that are out of bounds or blocked
-                if not in_bounds(nr, nc) or blocked[nr, nc]:
+                # skip neighbors that are out of bounds or blocked
+                if(not in_bounds(nr, nc) or blocked[nr, nc]):
                     continue
 
-                # Skip if we already finalized this neighbor
-                if (nr, nc) in closed_set:
+                # skip if we already finalized this neighbor
+                if ((nr, nc) in closed_set):
                     continue
 
                 # calculate costs
                 base_cost = move_cost(dr,dc)
                 enemy_cost = (penalty_at(r,c) + penalty_at(nr, nc))/2 # average enemy penalty with neighbor
                 
-                # Calculate the tentative new g-cost via current cell
+                # calculate the tentative new g-cost via current cell
                 tentative_g = g[(r, c)] + move_cost(dr, dc) + base_cost + enemy_cost
 
-                # If this path to (nr, nc) is better than any previously found, record it
-                if tentative_g < g.get((nr, nc), float('inf')):
+                # if this path to (nr, nc) is better than any previously found, record it
+                if (tentative_g < g.get((nr, nc), float('inf'))):
                     # print("huh")
                     g[(nr, nc)] = tentative_g
                     came_from[(nr, nc)] = (r, c)
 
-                    # Compute f = g + h for priority queue ordering
+                    # compute f = g + h for priority queue ordering
                     f = tentative_g + heuristic((nr, nc), self.goal)
 
                     heapq.heappush(open_set, (f, nr, nc))
-
-        # If we empty the open set without reaching the goal, no path exists
         return None
 
 
