@@ -154,23 +154,29 @@ def run():
         else:
             next_enemy_goal = hero_path[1]
 
+        # handles all enemy placement and hero killing logic
+        # index is for rewriting the enemy position list for hero pathing cost stuff
         enemy_index = 0
         for e in enemies:
             e_path: np.array[int] = []
 
+            # kill hero if enemy reached it
             if(e.at_goal()):
                 hero1.alive = False
                 break
-
+            
+            # if enemy exists, is alive, and hero is alive: set its goal and gen path
             if(e.alive and e.pos is not None and hero1.alive):
                 e.set_goal(next_enemy_goal)
                 e_path = e.gen_path(field)
-
+            # iterates enemy through its path if hero isnt dead
             if (not e.at_goal() and e_path):
+                # if cell is empty, proceeed with moving into it
                 if (e.alive and field[e_path[1]] == 0):
                     e.place_enemy(field, new_pos = e_path[1])
                     enemy_positions[enemy_index]=(e.get_pos())
                     # print("here")
+                # if cell isnt empty, make debris and die
                 elif (e.alive and field[e_path[1]] == 1):
                     field[e_path[0]] = 1
                     e.alive = False
@@ -179,6 +185,8 @@ def run():
             
 
         """TODO Dynamic stuff here"""
+        # handles moving the hero through its path
+        # ends the game if hero is dead
         if(not hero1.at_goal() and hero1.alive):
             hero1.place_hero(field, new_pos=hero_path[1])
         else:
