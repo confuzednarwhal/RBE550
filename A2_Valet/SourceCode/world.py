@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Iterable, Set
 import random
 
 from dataclasses import dataclass
-from math import cos, sin, tan, pi, hypot, isclose
+from math import cos, sin, tan, pi, hypot, isclose, floor
 
 TETRIMINOS: Dict[str, np.array] = {
     "I": np.array([[1, 1, 1, 1]], dtype=np.uint8),
@@ -49,10 +49,11 @@ def build_rotations(shapes: Dict[str, np.array]) -> Dict[str, np.array]:
 # dict of all the potential rotations
 TETRIMINO_ROTATIONS = build_rotations(TETRIMINOS)
 
+@dataclass(frozen=True)
 class Pose:
     x: int
     y: int
-    head_index: int
+    head_index: int 
 
 Edge = Tuple[Pose, float]
 
@@ -151,7 +152,7 @@ class map:
     
         delta = (delta_deg * pi) / 180.0
         t = tan(delta)
-        dtheta = (arc_l/wheelbase) * t
+        dtheta = (arc_l /wheelbase) * t
 
         if isclose(t, 0.0, abs_tol=1e-12):
             x_end, y_end = arc_l, 0.0
@@ -164,15 +165,16 @@ class map:
 
     def gen_primitive_lib(self,
             steer_ang_deg: Iterable[float] = (-25.0, 0.0, 25.0),
-            arc_l: Iterable[float] = (3.0, ),
+            arc_l: Iterable[float] = (1.5, 3.0),
             wheelbase: float = 2.5,
     ) -> List[Tuple[Tuple[float, float], float, float]]:
     
-        lib = List[Tuple[Tuple[float, float], float, float]] = []
+        lib: List[Tuple[Tuple[float, float], float, float]] = []
 
         for L in arc_l:
             for ang in steer_ang_deg:
-                local_end, dtheta, L_out = self.gen_motion_primitive(delta_deg=ang, arc_l=arc_l, wheelbase=wheelbase)
+                local_end, dtheta, L_out = self.gen_motion_primitive(delta_deg=ang, arc_l=L, wheelbase=wheelbase)
+                # print(local_end, dtheta, L_out)
                 lib.append((local_end, dtheta, L_out))
 
         return lib
@@ -181,9 +183,11 @@ class map:
     def gen_state_lattice( self,
         headings: int = 8,
         steering_angles_deg: Iterable[float] = (-25.0, 0.0, +25.0),
-        lengths: Iterable[float] = (1.0,),
+        lengths: Iterable[float] = (1.5,3.0),
         wheelbase: float = 2.5,
     ) -> Tuple[Set[Pose], Dict[Pose, List[Edge]]]:
+    
+
         
         height, width = self.num_rows, self.num_cols
 
@@ -197,10 +201,13 @@ class map:
                     continue
                 # 3) For a free cell, place one node per heading bin
                 for h in range(headings):
-                    nodes.add(Pose(x=x, y=y, h=h))
+                    nodes.add(Pose(x=x, y=y, head_index=h))
 
         # 4) Prepare an empty adjacency list (edges will be added later)
         adj: Dict[Pose, List[Edge]] = {node: [] for node in nodes}
+
+        print("cell_size:", self.cell_size, "headings:", headings, "lengths:", tuple(lengths), "wheelbase:", wheelbase)
+        print("free cells:", (self.field==0).sum(), "nodes:", len(nodes))
 
         # 2) Primitive library (closed-form endpoints)
         primitive_lib = self.gen_primitive_lib(
@@ -231,10 +238,13 @@ class map:
             Rotate/translate the CLOSED-FORM local endpoint into world coordinates,
             then snap to a grid index (gx, gy). Returns None if out of bounds.
             """
-            theta = heading_angle(start.h)
+            theta = heading_angle(start.head_index)
             wx, wy = rotate_local_point(endpoint_local[0], endpoint_local[1], theta)
-            gx = int((start.x + 0.5) + wx)
-            gy = int((start.y + 0.5) + wy)
+            dx = wx/self.cell_size
+            dy = wy/self.cell_size
+            gx = floor((start.x + 0.5) + dx)
+            gy = floor((start.y + 0.5) + dy)
+            
             if not in_bounds(gx, gy):
                 return None
             return gx, gy
@@ -248,27 +258,45 @@ class map:
             return arc_length + 0.05 * abs(dtheta_bins)
 
         # 5) Wire up edges (no collision checks)
-        for s in nodes:
+        for node in nodes:
             for endpoint_local, dtheta, arc_len in primitive_lib:
                 dth_bins = radians_to_heading_bins(dtheta)
 
-                cell = primitive_endpoint_world_cell(s, endpoint_local)
+                cell = primitive_endpoint_world_cell(node, endpoint_local)
                 if cell is None:
                     continue
 
                 gx, gy = cell
-                tgt = Pose(gx, gy, (s.h + dth_bins) % headings)
+                tgt = Pose(gx, gy, (node.head_index + dth_bins) % headings)
+
+                if gx == node.x and gy == node.y:
+                    continue
 
                 if tgt in nodes:
                     cost = primitive_cost_arc_length(arc_len, dth_bins)
-                    adj[s].append((tgt, cost))
+                    adj[node].append((tgt, cost))
+
+                if 3 <= node.x < width-3 and 3 <= node.y < height-3 and node.head_index == 0:
+                    # just once per many nodes, or break after a few
+                    print("FROM", (node.x, node.y, node.head_index),
+                            "EP", endpoint_local,
+                            "→", (gx, gy, (node.head_index + dth_bins) % headings),
+                            "in_nodes?", (tgt in nodes))
+                    # (and maybe break after ~5 prints to avoid spam)
+
         
         self.lattice = nodes, adj
+
+        n_edges = sum(len(e) for e in adj.values())
+        n_with_edges = sum(1 for e in adj.values() if e)
+        print("edges:", n_edges, "nodes_with_edges:", n_with_edges, "of", len(nodes))
+
 
         return self.lattice
         
 
 
+# """
     def display_field(self,
                   path=None,
                   *,
@@ -306,7 +334,7 @@ class map:
         def _xyz(s):
             # returns (x, y, h)
             if hasattr(s, "x"):
-                return s.x, s.y, getattr(s, "h", 0)
+                return s.x, s.y, getattr(s, "head_index", 0)
             return s  # assume tuple (x,y,h)
 
         # --- lattice: edges first (so nodes draw on top) ---
@@ -348,3 +376,4 @@ class map:
         if handles:
             plt.legend(loc="upper right")
         plt.show()
+# """
