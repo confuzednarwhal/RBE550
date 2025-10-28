@@ -1,6 +1,7 @@
 from __future__ import annotations
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from typing import Dict, List, Tuple, Iterable, Set
 import random
 
@@ -70,10 +71,10 @@ class map:
         self.rotations: Dict[str, List[np.array]] = TETRIMINO_ROTATIONS
 
         self.lattice: Tuple[Set[Pose], Dict[Pose, List[Edge]]] = []
+        self.goal_pos: Tuple[Tuple[int,int], Tuple[int,int], int] = []
 
     def get_map(self) -> np.array:
         return self.field
-
 
     # generates map at specific density
     def generate_map(self) -> np.array:
@@ -115,32 +116,63 @@ class map:
         
         return self.field
     
+    def generate_goal(self) -> None:
+        r = random.randint(self.num_rows/2 - 1 , self.num_rows - 1)
+        c = random.randint(self.num_cols/2 - 1, self.num_cols - 1)
+
+        self.goal_pos = [[r,c], [r,c+1], 4]
+        self.field[r, c:c+2] = 0
+        print(self.goal_pos)
+
+
+
+
+
 
     # not used in this game, used to initially visualize path
     # made with help from ChatGPT
-    # def display_field(self, path):
-    #     H, W = self.field.shape
+    def display_field(self, path):
+        H, W = self.field.shape
 
-    #     plt.figure(figsize=(10, 10))
-    #     plt.imshow(self.field, cmap="gray_r")
-    #     # draw grid lines
-    #     for row in range(H + 1):
-    #         plt.axhline(row - 0.5, linewidth=0.5)
-    #     for col in range(W + 1):
-    #         plt.axvline(col - 0.5, linewidth=0.5)
+        plt.figure(figsize=(10, 10))
+        plt.imshow(self.field, cmap="gray_r")
+        # draw grid lines
+        for row in range(H + 1):
+            plt.axhline(row - 0.5, linewidth=0.5)
+        for col in range(W + 1):
+            plt.axvline(col - 0.5, linewidth=0.5)
 
-    #     if(path is not None):
-    #         path = np.asarray(path) 
-    #         rows, cols = path[:,0], path[:,1]
-    #         plt.plot(cols, rows, 'b-', linewidth=2)      # blue line
-    #         plt.plot(cols, rows, 'bo', markersize=4)     # blue dots
-    #         plt.plot(cols[0], rows[0], 'go', markersize=8, label="Start")  # green start
-    #         plt.plot(cols[-1], rows[-1], 'ro', markersize=8, label="Goal") # red goal
+        (r0, c0), (r1, c1), h = self.goal_pos
+        # make sure order is top-left to bottom-right
+        rmin, rmax = sorted((r0, r1))
+        cmin, cmax = sorted((c0, c1))
 
-    #     plt.title("test")
-    #     plt.xticks([]); plt.yticks([])
-    #     plt.show()
+        # if your corners are INCLUSIVE, use +1; if EXCLUSIVE, drop the +1
+        height = (rmax - rmin + 1)
+        width  = (cmax - cmin + 1)
 
+        ax = plt.gca()
+        rect = Rectangle(
+            (cmin - 0.5, rmin - 0.5),  # (x,y) = (col,row) of top-left corner
+            width, height,
+            linewidth=2,
+            edgecolor='orange',
+            facecolor='none',         # or e.g. 'orange' with alpha=0.2 to fill
+            label='Goal region')
+        ax.add_patch(rect)
+
+        if(path is not None):
+            path = np.asarray(path) 
+            rows, cols = path[:,0], path[:,1]
+            plt.plot(cols, rows, 'b-', linewidth=2)      # blue line
+            plt.plot(cols, rows, 'bo', markersize=4)     # blue dots
+            plt.plot(cols[0], rows[0], 'go', markersize=8, label="Start")  # green start
+            plt.plot(cols[-1], rows[-1], 'ro', markersize=8, label="Goal") # red goal
+
+        plt.title("test")
+        plt.xticks([]); plt.yticks([])
+        plt.show()
+    
 
 
 
@@ -152,7 +184,7 @@ class map:
     
         delta = (delta_deg * pi) / 180.0
         t = tan(delta)
-        dtheta = (arc_l /wheelbase) * t
+        dtheta = (arc_l/wheelbase) * t
 
         if isclose(t, 0.0, abs_tol=1e-12):
             x_end, y_end = arc_l, 0.0
@@ -165,7 +197,7 @@ class map:
 
     def gen_primitive_lib(self,
             steer_ang_deg: Iterable[float] = (-25.0, 0.0, 25.0),
-            arc_l: Iterable[float] = (1.5, 3.0),
+            arc_l: Iterable[float] = (-3.0, 3.0),
             wheelbase: float = 2.5,
     ) -> List[Tuple[Tuple[float, float], float, float]]:
     
@@ -206,8 +238,8 @@ class map:
         # 4) Prepare an empty adjacency list (edges will be added later)
         adj: Dict[Pose, List[Edge]] = {node: [] for node in nodes}
 
-        print("cell_size:", self.cell_size, "headings:", headings, "lengths:", tuple(lengths), "wheelbase:", wheelbase)
-        print("free cells:", (self.field==0).sum(), "nodes:", len(nodes))
+        # print("cell_size:", self.cell_size, "headings:", headings, "lengths:", tuple(lengths), "wheelbase:", wheelbase)
+        # print("free cells:", (self.field==0).sum(), "nodes:", len(nodes))
 
         # 2) Primitive library (closed-form endpoints)
         primitive_lib = self.gen_primitive_lib(
@@ -289,14 +321,14 @@ class map:
 
         n_edges = sum(len(e) for e in adj.values())
         n_with_edges = sum(1 for e in adj.values() if e)
-        print("edges:", n_edges, "nodes_with_edges:", n_with_edges, "of", len(nodes))
+        # print("edges:", n_edges, "nodes_with_edges:", n_with_edges, "of", len(nodes))
 
 
         return self.lattice
         
 
 
-# """
+"""
     def display_field(self,
                   path=None,
                   *,
@@ -376,4 +408,4 @@ class map:
         if handles:
             plt.legend(loc="upper right")
         plt.show()
-# """
+"""
