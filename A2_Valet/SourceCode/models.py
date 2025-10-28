@@ -12,6 +12,15 @@ class vehicle:
         self.pos: Tuple[float, float, int] = [1.5, 6.0, 4]
         self.goal: Tuple[float, float, int] = []
         self.cell_size: float = 3.0
+        self.at_goal = False
     
-    def set_goal(self, goal: Tuple[float, float, int]):
-        
+    def set_goal(self, goal: Tuple[float, float, int]) -> None:
+        x, y, h = goal[0]*self.cell_size,goal[1]*self.cell_size, goal[3]
+        self.goal = [x,y,h]
+
+    def collision_check(self) -> bool:
+        return True
+    
+    def
+
+    

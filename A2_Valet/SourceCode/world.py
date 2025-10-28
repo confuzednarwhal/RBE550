@@ -308,13 +308,13 @@ class map:
                     cost = primitive_cost_arc_length(arc_len, dth_bins)
                     adj[node].append((tgt, cost))
 
-                if 3 <= node.x < width-3 and 3 <= node.y < height-3 and node.head_index == 0:
-                    # just once per many nodes, or break after a few
-                    print("FROM", (node.x, node.y, node.head_index),
-                            "EP", endpoint_local,
-                            "→", (gx, gy, (node.head_index + dth_bins) % headings),
-                            "in_nodes?", (tgt in nodes))
-                    # (and maybe break after ~5 prints to avoid spam)
+                # if 3 <= node.x < width-3 and 3 <= node.y < height-3 and node.head_index == 0:
+                #     # just once per many nodes, or break after a few
+                #     print("FROM", (node.x, node.y, node.head_index),
+                #             "EP", endpoint_local,
+                #             "→", (gx, gy, (node.head_index + dth_bins) % headings),
+                #             "in_nodes?", (tgt in nodes))
+                #     # (and maybe break after ~5 prints to avoid spam)
 
         
         self.lattice = nodes, adj
