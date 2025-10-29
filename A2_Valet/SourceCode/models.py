@@ -3,6 +3,7 @@ import math
 import heapq
 from typing import Dict, List, Tuple
 import random
+from world import Pose, GoalRegion
 
 from scipy.ndimage import gaussian_filter
 
@@ -21,6 +22,9 @@ class vehicle:
     def collision_check(self) -> bool:
         return True
     
-    def
+    def hybrid_a(self, start: Pose, goal_region: GoalRegion, field: np.array):
+        
+
+        return
 
     

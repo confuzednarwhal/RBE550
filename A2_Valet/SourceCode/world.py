@@ -52,9 +52,16 @@ TETRIMINO_ROTATIONS = build_rotations(TETRIMINOS)
 
 @dataclass(frozen=True)
 class Pose:
-    x: int
-    y: int
+    x: float
+    y: float
     head_index: int 
+
+@dataclass()
+class GoalRegion:
+    x_range: Tuple[float,float]
+    y_range: Tuple[float,float]
+    heading: float
+    heading_tol: float
 
 Edge = Tuple[Pose, float]
 
@@ -113,7 +120,8 @@ class map:
             # places shape if it fits within field bounds
             if(can_place(shape, r, c)):
                 place_shape(shape, r, c)
-        
+
+        self.generate_goal()
         return self.field
     
     def generate_goal(self) -> None:
@@ -124,13 +132,10 @@ class map:
         self.field[r, c:c+2] = 0
         print(self.goal_pos)
 
+    def gen_goal_region(self) -> GoalRegion:
+        x_region: Tuple = []
 
-
-
-
-
-    # not used in this game, used to initially visualize path
-    # made with help from ChatGPT
+    """
     def display_field(self, path):
         H, W = self.field.shape
 
@@ -172,9 +177,7 @@ class map:
         plt.title("test")
         plt.xticks([]); plt.yticks([])
         plt.show()
-    
-
-
+    """
 
     def gen_motion_primitive(self,
         delta_deg: float,
@@ -211,201 +214,220 @@ class map:
 
         return lib
 
-
     def gen_state_lattice( self,
         headings: int = 8,
         steering_angles_deg: Iterable[float] = (-25.0, 0.0, +25.0),
-        lengths: Iterable[float] = (1.5,3.0),
+        lengths: Iterable[float] = (-3.0,3.0),
         wheelbase: float = 2.5,
     ) -> Tuple[Set[Pose], Dict[Pose, List[Edge]]]:
-    
+        """
+        Generate a continuous state lattice — no grid snapping.
+        Nodes live in (x [m], y [m], theta [rad]).
+        The occupancy grid is only used later for collision queries.
+        """
 
-        
         height, width = self.num_rows, self.num_cols
 
-        nodes: Set[Pose] = set()
-
-        # 1) Visit every grid cell by its integer indices
-        for y in range(height):        # y = row index
-            for x in range(width):     # x = column index
-                # 2) Skip obstacles; only place nodes on free cells
-                if self.field[y, x] != 0:
-                    continue
-                # 3) For a free cell, place one node per heading bin
-                for h in range(headings):
-                    nodes.add(Pose(x=x, y=y, head_index=h))
-
-        # 4) Prepare an empty adjacency list (edges will be added later)
-        adj: Dict[Pose, List[Edge]] = {node: [] for node in nodes}
-
-        # print("cell_size:", self.cell_size, "headings:", headings, "lengths:", tuple(lengths), "wheelbase:", wheelbase)
-        # print("free cells:", (self.field==0).sum(), "nodes:", len(nodes))
-
-        # 2) Primitive library (closed-form endpoints)
+        # primitive library (closed-form arcs)
         primitive_lib = self.gen_primitive_lib(
             steer_ang_deg=steering_angles_deg,
             arc_l=lengths,
             wheelbase=wheelbase,
         )
 
-        def in_bounds(x: int, y: int) -> bool:
-            return 0 <= x < width and 0 <= y < height
-        
-
-        # 3) Heading / rotation helpers
-        def heading_angle(hbin: int) -> float:
-            return (2.0 * pi * hbin) / headings
-
+        # --- helper: rotate & translate local endpoints ---
         def rotate_local_point(px: float, py: float, theta: float) -> Tuple[float, float]:
-            return (px * cos(theta) - py * sin(theta),
-                    px * sin(theta) + py * cos(theta))
+            return (
+                px * cos(theta) - py * sin(theta),
+                px * sin(theta) + py * cos(theta)
+            )
 
-        def radians_to_heading_bins(dtheta: float) -> int:
-            bin_angle = (2.0 * pi) / headings
-            return int(round(dtheta / bin_angle))
+        def in_world_bounds(x: float, y: float) -> bool:
+            """Check if a world coordinate (meters) lies within map limits."""
+            world_w = width * self.cell_size
+            world_h = height * self.cell_size
+            return (0.0 <= x < world_w) and (0.0 <= y < world_h)
 
-        # 4) Endpoint & cost helpers (closed-form endpoint version)
-        def primitive_endpoint_world_cell(start: Pose, endpoint_local: Tuple[float, float]) -> Tuple[int, int] | None:
-            """
-            Rotate/translate the CLOSED-FORM local endpoint into world coordinates,
-            then snap to a grid index (gx, gy). Returns None if out of bounds.
-            """
-            theta = heading_angle(start.head_index)
-            wx, wy = rotate_local_point(endpoint_local[0], endpoint_local[1], theta)
-            dx = wx/self.cell_size
-            dy = wy/self.cell_size
-            gx = floor((start.x + 0.5) + dx)
-            gy = floor((start.y + 0.5) + dy)
-            
-            if not in_bounds(gx, gy):
-                return None
-            return gx, gy
+        def primitive_cost(arc_length: float, dtheta: float) -> float:
+            """Cost = arc length + small curvature penalty."""
+            return abs(arc_length) + 0.05 * abs(dtheta)
 
-        def primitive_cost_arc_length(arc_length: float, dtheta_bins: int) -> float:
-            """
-            Edge cost model:
-            - Base = true arc length (provided by the primitive)
-            - + tiny penalty per heading-bin change (to mildly prefer straights)
-            """
-            return arc_length + 0.05 * abs(dtheta_bins)
+        # --- initialize a sparse, continuous node set ---
+        nodes: Set[Pose] = set()
 
-        # 5) Wire up edges (no collision checks)
-        for node in nodes:
+        # Option 1: seed from free-cell centers (converted to meters)
+        for iy in range(height):
+            for ix in range(width):
+                if self.field[iy, ix] != 0:
+                    continue
+                # convert cell center to continuous world coordinates (m)
+                cx = (ix + 0.5) * self.cell_size
+                cy = (iy + 0.5) * self.cell_size
+                # single representative heading — this will expand continuously
+                for h in np.linspace(0, 2*pi, num=8, endpoint=False):
+                    nodes.add(Pose(cx, cy, h))
+
+        # adjacency dictionary for edges
+        adj: Dict[Pose, List[Edge]] = {n: [] for n in nodes}
+
+        # --- main loop: generate continuous connections ---
+        for s in nodes:
             for endpoint_local, dtheta, arc_len in primitive_lib:
-                dth_bins = radians_to_heading_bins(dtheta)
+                theta = s.head_index  # now treated as a continuous heading in radians
 
-                cell = primitive_endpoint_world_cell(node, endpoint_local)
-                if cell is None:
+                # transform primitive endpoint into world space
+                wx, wy = rotate_local_point(endpoint_local[0], endpoint_local[1], theta)
+                x_new = s.x + wx
+                y_new = s.y + wy
+                theta_new = (theta + dtheta) % (2*pi)
+
+                # skip if the target is outside the map
+                if not in_world_bounds(x_new, y_new):
                     continue
 
-                gx, gy = cell
-                tgt = Pose(gx, gy, (node.head_index + dth_bins) % headings)
+                tgt = Pose(x_new, y_new, theta_new)
 
-                if gx == node.x and gy == node.y:
-                    continue
+                # cost purely from primitive geometry
+                cost = primitive_cost(arc_len, dtheta)
 
-                if tgt in nodes:
-                    cost = primitive_cost_arc_length(arc_len, dth_bins)
-                    adj[node].append((tgt, cost))
+                # add edge
+                adj[s].append((tgt, cost))
 
-                # if 3 <= node.x < width-3 and 3 <= node.y < height-3 and node.head_index == 0:
-                #     # just once per many nodes, or break after a few
-                #     print("FROM", (node.x, node.y, node.head_index),
-                #             "EP", endpoint_local,
-                #             "→", (gx, gy, (node.head_index + dth_bins) % headings),
-                #             "in_nodes?", (tgt in nodes))
-                #     # (and maybe break after ~5 prints to avoid spam)
-
-        
         self.lattice = nodes, adj
-
-        n_edges = sum(len(e) for e in adj.values())
-        n_with_edges = sum(1 for e in adj.values() if e)
-        # print("edges:", n_edges, "nodes_with_edges:", n_with_edges, "of", len(nodes))
-
-
         return self.lattice
+    
+        # n_edges = sum(len(e) for e in adj.values())
+        # n_with_edges = sum(1 for e in adj.values() if e)
+        # print("edges:", n_edges, "nodes_with_edges:", n_with_edges, "of", len(nodes))
         
-
-
-"""
     def display_field(self,
-                  path=None,
-                  *,
-                  headings=None,              # int (only needed if you want to filter by heading)
-                  h_only=None,                # show only this heading bin (e.g., 0..headings-1) or None for all
-                  draw_nodes=True,
-                  draw_edges=True,
-                  max_edges_per_node=3,       # limit to avoid hairball
-                  node_stride=1,              # draw every Nth node for speed/clarity
-                  edge_alpha=0.35,
-                  node_alpha=0.75,
-                  node_size=10):
+        path=None,
+        *,
+        headings=None,              # (optional) number of bins, only used if you filter by bin
+        h_only=None,                # EITHER an int bin (0..headings-1) OR a tuple (angle_rad, tol_rad)
+        draw_nodes=True,
+        draw_edges=True,
+        max_edges_per_node=3,
+        node_stride=1,
+        edge_alpha=0.35,
+        node_alpha=0.75,
+        node_size=10):
 
+        """
+        Visualizes:
+        - occupancy grid (in cell coordinates)
+        - a continuous lattice whose node coords are in METERS (x[m], y[m], theta[rad])
+        - optional path (assumed in cell coords, same as your original)
+        """
+
+        import math
         H, W = self.field.shape
-        nodes, adj = self.lattice[0], self.lattice[1]
+        nodes, adj = self.lattice
 
-        # --- base layer: grid + obstacles (your original) ---
-        plt.figure(figsize=(10, 10))
-        plt.imshow(self.field, cmap="gray_r", origin="upper")  # keep same orientation
+        # ---------- helpers ----------
+        def m_to_cells(v_m: float) -> float:
+            """Convert meters to cell units for plotting over the grid image."""
+            return v_m / self.cell_size
+
+        def to_plot_xy(state):
+            """Return (col, row) in grid/cell units from a Pose or (x,y,θ)."""
+            if hasattr(state, "x"):
+                x_m = state.x
+                y_m = state.y
+            else:
+                x_m, y_m = state[0], state[1]
+            return m_to_cells(x_m), m_to_cells(y_m)
+
+        def heading_of(state) -> float:
+            """Return heading in radians from a Pose or 3-tuple."""
+            if hasattr(state, "head_index"):
+                return state.head_index  # in your continuous lattice this is θ (rad)
+            return state[2]
+
+        def angle_diff(a: float, b: float) -> float:
+            """Smallest signed difference a-b in [-pi, pi]."""
+            d = (a - b + math.pi) % (2 * math.pi) - math.pi
+            return d
+
+        def heading_bin(theta: float, n_bins: int) -> int:
+            """Map a continuous angle to the nearest discrete heading bin."""
+            step = 2.0 * math.pi / n_bins
+            return int(round((theta % (2*math.pi)) / step)) % n_bins
+
+        def pass_heading_filter(theta: float) -> bool:
+            """Implements h_only semantics for continuous headings."""
+            if h_only is None:
+                return True
+            # Case 1: user passed an integer bin and provided 'headings'
+            if isinstance(h_only, int) and isinstance(headings, int) and headings > 0:
+                return heading_bin(theta, headings) == h_only
+            # Case 2: user passed (angle_rad, tol_rad)
+            if isinstance(h_only, (tuple, list)) and len(h_only) == 2:
+                ang, tol = h_only
+                return abs(angle_diff(theta, ang)) <= tol
+            # Fallback: show all
+            return True
+
+        # ---------- base layer: grid + obstacles ----------
+        plt.figure(figsize=(10, 10), dpi=140)
+        plt.imshow(self.field, cmap="gray_r", origin="upper", zorder=0)
         for row in range(H + 1):
-            plt.axhline(row - 0.5, linewidth=0.5, color='k', alpha=0.15)
+            plt.axhline(row - 0.5, linewidth=0.5, color='k', alpha=0.15, zorder=1)
         for col in range(W + 1):
-            plt.axvline(col - 0.5, linewidth=0.5, color='k', alpha=0.15)
+            plt.axvline(col - 0.5, linewidth=0.5, color='k', alpha=0.15, zorder=1)
 
-        # --- optional: draw a planned path (your original, unchanged) ---
+        # ---------- optional: draw a planned path (assumed in CELL coords, like your original) ----------
         if path is not None:
             path = np.asarray(path)
             rows, cols = path[:, 0], path[:, 1]
-            plt.plot(cols, rows, 'b-', linewidth=2, label="Path")
-            plt.plot(cols, rows, 'bo', markersize=4)
-            plt.plot(cols[0], rows[0], 'go', markersize=8, label="Start")
-            plt.plot(cols[-1], rows[-1], 'ro', markersize=8, label="Goal")
+            plt.plot(cols, rows, 'b-', linewidth=2, label="Path", zorder=5)
+            plt.plot(cols, rows, 'bo', markersize=4, zorder=5)
+            plt.plot(cols[0], rows[0], 'go', markersize=8, label="Start", zorder=6)
+            plt.plot(cols[-1], rows[-1], 'ro', markersize=8, label="Goal", zorder=6)
 
-        # Helpers to accept either dataclass States or raw tuples
-        def _xyz(s):
-            # returns (x, y, h)
-            if hasattr(s, "x"):
-                return s.x, s.y, getattr(s, "head_index", 0)
-            return s  # assume tuple (x,y,h)
-
-        # --- lattice: edges first (so nodes draw on top) ---
-        if draw_edges and adj is not None:
-            drawn = 0
+        # ---------- lattice: edges first (nodes on top) ----------
+        if draw_edges and adj:
             for i, (s, edges) in enumerate(adj.items()):
                 if i % max(1, node_stride) != 0:
                     continue
-                sx, sy, sh = _xyz(s)
-                if h_only is not None and sh != h_only:
+                sh = heading_of(s)
+                if not pass_heading_filter(sh):
                     continue
-                cx, cy = sx + 0.5, sy + 0.5
+                sx_c, sy_c = to_plot_xy(s)  # already in cell units
                 # draw up to N edges per node
-                for j, (tgt, _cost) in enumerate(edges[:max_edges_per_node]):
-                    tx, ty, _th = _xyz(tgt)
-                    plt.plot([cx, tx + 0.5], [cy, ty + 0.5],
-                            '-', linewidth=1, color=(0.25, 0.5, 1.0, edge_alpha))
-                drawn += 1
+                for tgt, _cost in edges[:max_edges_per_node]:
+                    tx_c, ty_c = to_plot_xy(tgt)
+                    plt.plot([sx_c, tx_c], [sy_c, ty_c],
+                            '-', linewidth=1,
+                            color=(0.25, 0.5, 1.0, edge_alpha),
+                            zorder=3)
 
-        # --- lattice: nodes (cell centers) ---
-        if draw_nodes and nodes is not None:
+        # ---------- lattice: nodes ----------
+        if draw_nodes and nodes:
             xs, ys = [], []
             for i, s in enumerate(nodes):
                 if i % max(1, node_stride) != 0:
                     continue
-                x, y, h = _xyz(s)
-                if h_only is not None and h != h_only:
+                sh = heading_of(s)
+                if not pass_heading_filter(sh):
                     continue
-                xs.append(x + 0.5)
-                ys.append(y + 0.5)
+                x_c, y_c = to_plot_xy(s)
+                xs.append(x_c)
+                ys.append(y_c)
             if xs:
-                plt.scatter(xs, ys, s=node_size, c=[(0.7, 0.9, 1.0, node_alpha)], marker='o', edgecolors='none', label="Lattice nodes")
+                plt.scatter(xs, ys,
+                            s=node_size,
+                            c=[(0.7, 0.9, 1.0, node_alpha)],
+                            marker='o',
+                            edgecolors='none',
+                            label="Lattice nodes",
+                            zorder=4)
 
-        # --- final touches ---
-        plt.title("Field + State Lattice")
+        # ---------- final touches ----------
+        plt.title("Field + Continuous-State Lattice")
         plt.xticks([]); plt.yticks([])
-        # show legend only if we actually drew labeled items
         handles, labels = plt.gca().get_legend_handles_labels()
         if handles:
             plt.legend(loc="upper right")
         plt.show()
-"""
+
