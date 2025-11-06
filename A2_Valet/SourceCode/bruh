@@ -1,0 +1,197 @@
+# planner_astar.py
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Dict, List, Tuple, Optional, Set
+import math
+import heapq
+
+# Import your Pose/GoalRegion from the lattice module
+# (adjust the import path/name if your file isn't "world.py")
+from world import Pose, GoalRegion
+
+@dataclass
+class PlanResult:
+    success: bool
+    path: List[Pose]              # node-by-node states (already cell-centered, heading-quantized)
+    cost: float
+    expanded: int                 # how many nodes popped from the open set
+    reason: str = ""              # debug info when success == False
+
+
+class AStarPlanner:
+    """
+    Minimal A* over your precomputed lattice graph.
+    - Does NOT generate new edges; it only walks the graph you built.
+    - Assumes node positions are at cell centers and headings are quantized.
+    - Uses a simple, admissible heuristic: distance to the goal box + tiny heading term.
+    """
+
+    def __init__(self, headings: int):
+        """
+        `headings` must be the SAME value used when you built the lattice.
+        This is used only to snap the START heading so it equals a node key.
+        """
+        self.headings = headings
+
+    # ---------- tiny math helpers ----------
+    @staticmethod
+    def _wrap(th: float) -> float:
+        return th % (2.0 * math.pi)
+
+    @staticmethod
+    def _ang_diff(a: float, b: float) -> float:
+        d = (a - b + math.pi) % (2.0 * math.pi) - math.pi
+        return d
+
+    def _bin_angle(self, th: float) -> float:
+        step = 2.0 * math.pi / self.headings
+        b = int(round(self._wrap(th) / step)) % self.headings
+        return b * step
+
+    # ---------- goal utilities ----------
+    @staticmethod
+    def _nearest_point_on_box(x: float, y: float, xmin: float, xmax: float, ymin: float, ymax: float) -> Tuple[float, float]:
+        # clamp (x,y) to the axis-aligned box
+        nx = min(max(x, xmin), xmax)
+        ny = min(max(y, ymin), ymax)
+        return nx, ny
+
+    def _heuristic(self, p: Pose, goal: GoalRegion, w_heading: float) -> float:
+        # distance to the goal box (0 if inside)
+        nx, ny = self._nearest_point_on_box(p.x, p.y, goal.x_range[0], goal.x_range[1], goal.y_range[0], goal.y_range[1])
+        dx, dy = (p.x - nx), (p.y - ny)
+        h_pos = math.hypot(dx, dy)
+        # tiny heading term (keeps admissible if w_heading is small)
+        dth = abs(self._ang_diff(p.theta, goal.heading))
+        return h_pos + w_heading * dth
+
+    def _in_goal(self, p: Pose, goal: GoalRegion) -> bool:
+        x_ok = (goal.x_range[0] <= p.x <= goal.x_range[1])
+        y_ok = (goal.y_range[0] <= p.y <= goal.y_range[1])
+        th_ok = abs(self._ang_diff(p.theta, goal.heading)) <= goal.heading_tol
+        return x_ok and y_ok and th_ok
+
+    # ---------- public API ----------
+    def plan(
+        self,
+        world,                          # your map/world instance (must expose `lattice` and `goal_region`)
+        start: Pose,                    # (x,y,theta) in WORLD meters/radians
+        *,
+        w_heading: float = 0.01,        # small weight on heading mismatch in the heuristic
+        max_expansions: int = 200_000
+    ) -> PlanResult:
+        """
+        Run A* from `start` to the world's GoalRegion using the prebuilt lattice.
+
+        Requirements on `world`:
+          - world.lattice == (nodes, adj) where adj[u] -> List[(v, cost)]
+          - world.goal_region is a GoalRegion
+          - world.world_to_nearest_cell_center(x,y) -> (r,c,xc,yc)
+        """
+
+        # --- sanity checks ---
+        if not hasattr(world, "lattice"):
+            return PlanResult(False, [], float("inf"), 0, "world.lattice missing")
+
+        nodes, adj = getattr(world, "lattice")
+        if not nodes or not isinstance(adj, dict):
+            return PlanResult(False, [], float("inf"), 0, "lattice is empty or malformed")
+
+        goal: Optional[GoalRegion] = getattr(world, "goal_region", None)
+        if goal is None:
+            return PlanResult(False, [], float("inf"), 0, "goal_region is None")
+
+        # --- snap START to the SAME grid as the lattice ---
+        try:
+            _r, _c, sx, sy = world.world_to_nearest_cell_center(start.x, start.y)
+        except Exception as e:
+            return PlanResult(False, [], float("inf"), 0, f"start snap failed: {e}")
+
+        stheta = self._bin_angle(start.theta)      # snap heading to bin angle
+        s = Pose(sx, sy, stheta)
+
+        if s not in nodes:
+            # If this trips, headings or centers aren’t quantized the same way as the lattice
+            return PlanResult(False, [], float("inf"), 0, "snapped start Pose not in lattice nodes")
+
+        # --- standard A* ---
+        open_heap: List[Tuple[float, float, int, Pose]] = []   # (f, h, tie, node)
+        came_from: Dict[Pose, Pose] = {}
+        g: Dict[Pose, float] = {s: 0.0}
+        h0 = self._heuristic(s, goal, w_heading)
+        heapq.heappush(open_heap, (h0, h0, 0, s))
+
+        closed: Set[Pose] = set()
+        tie = 1
+        expansions = 0
+
+        while open_heap:
+            _f, _h, _t, u = heapq.heappop(open_heap)
+            if u in closed:
+                continue
+            closed.add(u)
+            expansions += 1
+
+            # goal test on pop → optimal with consistent h
+            if self._in_goal(u, goal):
+                path = self._reconstruct(came_from, u)
+                return PlanResult(True, path, g[u], expansions, "")
+
+            if expansions >= max_expansions:
+                return PlanResult(False, [], float("inf"), expansions, "max_expansions reached")
+
+            # expand neighbors
+            for (v, cost) in adj.get(u, []):
+                # NOTE: v should already be a valid node key in your lattice
+                new_g = g[u] + cost
+                old_g = g.get(v, float("inf"))
+                if new_g < old_g:
+                    g[v] = new_g
+                    came_from[v] = u
+                    hv = self._heuristic(v, goal, w_heading)
+                    fv = new_g + hv
+                    heapq.heappush(open_heap, (fv, hv, tie, v))
+                    tie += 1
+
+        return PlanResult(False, [], float("inf"), expansions, "open set exhausted (no path)")
+
+    @staticmethod
+    def _reconstruct(came_from: Dict[Pose, Pose], goal: Pose) -> List[Pose]:
+        path = [goal]
+        cur = goal
+        while cur in came_from:
+            cur = came_from[cur]
+            path.append(cur)
+        path.reverse()
+        return path
+    
+
+
+    # run.py (or wherever you orchestrate)
+from world import map as World, Pose
+from planner_astar import AStarPlanner
+
+# 1) Build the world & lattice
+w = World()
+w.generate_map()
+w.gen_state_lattice(
+    headings=8,                         # <- keep this for planner init below
+    steering_angles_deg=(-25.0, 0.0, 25.0),
+    lengths=(-3.0, 3.0, -1.0, 1.0),
+    wheelbase=2.5,
+)
+
+# 2) Prepare the planner with the SAME headings used above
+planner = AStarPlanner(headings=8)
+
+# 3) Define a start (in world meters/radians)
+start = Pose(x=1.5 * w.cell_size, y=1.5 * w.cell_size, theta=0.0)
+
+# 4) Plan
+result = planner.plan(w, start, w_heading=0.01)
+
+print("success:", result.success, "cost:", result.cost, "expanded:", result.expanded, "reason:", result.reason)
+if result.success:
+    # result.path is a list[Pose] at cell centers; you can render directly
+    w.display_field(path=None, draw_edges=True, draw_nodes=True)
+

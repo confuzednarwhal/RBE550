@@ -1,14 +1,20 @@
-import world
-import numpy as np
-import pygame
+from world import map as World, Pose
+from planner_lazy import AStarPlanner
 
+w = World()
+w.generate_map()
 
-# b0 = self.heading_bin(start.theta, headings)
-# start = Pose(start.x, start.y, self.bin_to_angle(b0, headings))
+# w.generate_goal()
+# w.gen_state_lattice()  # optional now; you don’t need the big closure anymore
 
-test = world.map()
+# pick a start pose (meters)
+start = Pose(x=1.5, y=4.5, theta=0.0)  # cell center of (0,0) for cell_size=3.0
 
-test2 = test.generate_map()
-test.generate_goal()
-test.gen_state_lattice()
-test.display_field(None)
+planner = AStarPlanner(world=w)
+
+result = planner.plan(start)
+print("success:", result.success, "expanded:", result.expanded, "cost:", result.cost)
+
+# visualize if you like
+if result.success:
+    w.display_field(path=result.path, path_units="meters")
