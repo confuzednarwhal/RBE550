@@ -15,12 +15,14 @@ class Plan:
     expanded: int
     reason: str = ""
 
-@dataclass(frozen=True)
+@dataclass
 class vehicle:
     goal_cells: Pose
-    pos_cells: Tuple[Tuple[int,int], Tuple[int,int], int]
-    pos: Pose = (3.0, 6.0, 0.0)
+    pos_cells: Tuple[Tuple[int,int], Tuple[int,int], int] = (())
+    pos: Pose = (1.5, 4.5, 0.0)
     at_goal: bool = False
+
+    def cells_to_world():
 
 
 

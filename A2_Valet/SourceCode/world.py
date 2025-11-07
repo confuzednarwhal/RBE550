@@ -307,7 +307,7 @@ class map:
         self.goal_cells = [[r, c], [r, c+1], 4]
         self.field[r, c:c+2] = 0
         self.gen_goal_region(r=r, c=c)
-        print("grid goal_pos:", self.goal_cells)
+        # print("grid goal_pos:", self.goal_cells)
 
     def gen_goal_region(self, r: int, c: int) -> GoalRegion:
         # two adjacent cells: (r,c) and (r,c+1)
@@ -485,113 +485,6 @@ class map:
         return self.lattice
 
 
-    """
-    def gen_state_lattice( self,                                      # CHANGED
-        headings: int = 8,
-        steering_angles_deg: Iterable[float] = (-25.0, 0.0, +25.0),
-        lengths: Iterable[float] = (-3.0, 3.0, 0.5, -0.5, 0.25, -0.25,-1.0, 1.0),
-        wheelbase: float = 2.5,
-    ) -> Tuple[Set[Pose], Dict[Pose, List[Edge]]]:
-        
-        # Continuous-state lattice with ε-hash: nodes live at continuous (x,y,θ),
-        # we dedupe/lookup using small quantization buckets (res_xy, res_th_rad).
-        
-
-        H, W = self.num_rows, self.num_cols
-
-        # Primitive library (same as before)
-        primitive_lib = self.gen_primitive_lib(
-            steer_ang_deg=steering_angles_deg,
-            arc_l=lengths,
-            wheelbase=wheelbase,
-        )
-
-        # In-bounds check (meters)
-        world_w = self.num_cols * self.cell_size
-        world_h = self.num_rows * self.cell_size
-        def in_world_bounds(x: float, y: float) -> bool:
-            eps = 1e-9
-            return (-eps <= x <= world_w + eps) and (-eps <= y <= world_h + eps)
-
-        # --- Build nodes using ε-keys (dict) ---
-        nodes_by_key: dict[tuple[int,int,int], Pose] = {}            # NEW
-        adj: Dict[Pose, List[Edge]] = {}                             # NEW
-
-        # Seed from free-cell centers (ok to seed at centers; successors stay continuous)
-        for r in range(H):
-            for c in range(W):
-                if self.field[r, c] != 0:
-                    continue
-                cx, cy = self.cell_center_to_world(r, c)             # keep seeding at centers
-                for b in range(headings):
-                    th = 2.0 * math.pi * (b / headings)
-                    u = self.get_or_make_node(cx, cy, th, nodes_by_key)  # NEW
-                    if u not in adj:
-                        adj[u] = []                                  # NEW
-        # Expand closure under primitives with a simple frontier (BFS over the state graph)
-        frontier = list(nodes_by_key.values())                      # (unchanged)
-        idx = 0                                                    # (unchanged)
-
-        # --- TERMINATION SAFEGUARDS ---                             # NEW
-        MAX_NODES = 20000                                           # NEW: global node cap
-        MAX_FRONTIER = 20000                                        # NEW: frontier cap
-        MAX_NEW_EDGES_PER_NODE = 24                                 # NEW: per-node branching cap
-
-        while (
-            idx < len(frontier)
-            and idx < MAX_FRONTIER                                  # NEW
-            and len(nodes_by_key) < MAX_NODES                       # NEW
-        ):
-            s = frontier[idx]; idx += 1
-            s_th = s.theta
-
-            new_edges = 0                                           # NEW
-
-            for (endpoint_local, dtheta, arc_len) in primitive_lib:
-                # transform local primitive endpoint into world coords (unchanged math)
-                wx =  endpoint_local[0] * math.cos(s_th) - endpoint_local[1] * math.sin(s_th)
-                wy =  endpoint_local[0] * math.sin(s_th) + endpoint_local[1] * math.cos(s_th)
-                x_new = s.x + wx
-                y_new = s.y + wy
-                th_new = self.wrap_angle(s_th + dtheta)             # (unchanged)
-
-                # --- avoid self-loops caused by ε-bucketing ---     # NEW
-                if self.pose_key_from_vals(x_new, y_new, th_new) == self.pose_key_from_vals(s.x, s.y, s.theta):
-                    continue
-
-                # bounds + collision along the arc (unchanged semantics)
-                if not in_world_bounds(x_new, y_new):
-                    continue
-                if not self.is_edge_free(s, dtheta=dtheta, arc_l=arc_len, wheelbase=wheelbase):
-                    continue
-
-                # Get/create continuous target using ε-hash (NO snapping to cell centers)
-                v = self.get_or_make_node(x_new, y_new, th_new, nodes_by_key)
-
-                # Ensure adjacency list exists for v; expand from new nodes as well
-                if v not in adj:
-                    # --- respect node cap before adding/expanding --- # NEW
-                    if len(nodes_by_key) >= MAX_NODES:
-                        continue
-                    adj[v] = []
-                    if len(frontier) < MAX_FRONTIER:                 # NEW
-                        frontier.append(v)
-
-                # Cost + metadata (PRESERVED)
-                cost = abs(arc_len) + 0.05 * abs(dtheta)
-                meta = EdgeData(dtheta=dtheta, arc_len=arc_len)
-                adj[s].append((v, cost, meta))
-
-                new_edges += 1                                       # NEW
-                if new_edges >= MAX_NEW_EDGES_PER_NODE:              # NEW
-                    break
-
-
-        # Export as (set, dict)
-        nodes = set(nodes_by_key.values())                        # NEW
-        self.lattice = nodes, adj
-        return self.lattice
-        """
         
     def display_field(
         self,
@@ -705,12 +598,12 @@ class map:
                 ax.plot(cols[-1], rows[-1], 'o', color='tab:red', markersize=7, label="Goal", zorder=6)
 
                 # explicit debug
-                print("Display -> Path units: meters | Start(m):",
-                    (round(float(path[0].x if hasattr(path[0], 'x') else path[0][0]), 3),
-                    round(float(path[0].y if hasattr(path[0], 'y') else path[0][1]), 3)),
-                    "Goal(m):",
-                    (round(float(path[-1].x if hasattr(path[-1], 'x') else path[-1][0]), 3),
-                    round(float(path[-1].y if hasattr(path[-1], 'y') else path[-1][1]), 3)))
+                # print("Display -> Path units: meters | Start(m):",
+                #     (round(float(path[0].x if hasattr(path[0], 'x') else path[0][0]), 3),
+                #     round(float(path[0].y if hasattr(path[0], 'y') else path[0][1]), 3)),
+                #     "Goal(m):",
+                #     (round(float(path[-1].x if hasattr(path[-1], 'x') else path[-1][0]), 3),
+                #     round(float(path[-1].y if hasattr(path[-1], 'y') else path[-1][1]), 3)))
 
             elif path_units == "cells":
                 cols = [float(rc[1]) for rc in path]
@@ -739,9 +632,113 @@ class map:
 
 
 
+    """
+    def gen_state_lattice( self,                                      # CHANGED
+        headings: int = 8,
+        steering_angles_deg: Iterable[float] = (-25.0, 0.0, +25.0),
+        lengths: Iterable[float] = (-3.0, 3.0, 0.5, -0.5, 0.25, -0.25,-1.0, 1.0),
+        wheelbase: float = 2.5,
+    ) -> Tuple[Set[Pose], Dict[Pose, List[Edge]]]:
+        
+        # Continuous-state lattice with ε-hash: nodes live at continuous (x,y,θ),
+        # we dedupe/lookup using small quantization buckets (res_xy, res_th_rad).
+        
+
+        H, W = self.num_rows, self.num_cols
+
+        # Primitive library (same as before)
+        primitive_lib = self.gen_primitive_lib(
+            steer_ang_deg=steering_angles_deg,
+            arc_l=lengths,
+            wheelbase=wheelbase,
+        )
+
+        # In-bounds check (meters)
+        world_w = self.num_cols * self.cell_size
+        world_h = self.num_rows * self.cell_size
+        def in_world_bounds(x: float, y: float) -> bool:
+            eps = 1e-9
+            return (-eps <= x <= world_w + eps) and (-eps <= y <= world_h + eps)
+
+        # --- Build nodes using ε-keys (dict) ---
+        nodes_by_key: dict[tuple[int,int,int], Pose] = {}            # NEW
+        adj: Dict[Pose, List[Edge]] = {}                             # NEW
+
+        # Seed from free-cell centers (ok to seed at centers; successors stay continuous)
+        for r in range(H):
+            for c in range(W):
+                if self.field[r, c] != 0:
+                    continue
+                cx, cy = self.cell_center_to_world(r, c)             # keep seeding at centers
+                for b in range(headings):
+                    th = 2.0 * math.pi * (b / headings)
+                    u = self.get_or_make_node(cx, cy, th, nodes_by_key)  # NEW
+                    if u not in adj:
+                        adj[u] = []                                  # NEW
+        # Expand closure under primitives with a simple frontier (BFS over the state graph)
+        frontier = list(nodes_by_key.values())                      # (unchanged)
+        idx = 0                                                    # (unchanged)
+
+        # --- TERMINATION SAFEGUARDS ---                             # NEW
+        MAX_NODES = 20000                                           # NEW: global node cap
+        MAX_FRONTIER = 20000                                        # NEW: frontier cap
+        MAX_NEW_EDGES_PER_NODE = 24                                 # NEW: per-node branching cap
+
+        while (
+            idx < len(frontier)
+            and idx < MAX_FRONTIER                                  # NEW
+            and len(nodes_by_key) < MAX_NODES                       # NEW
+        ):
+            s = frontier[idx]; idx += 1
+            s_th = s.theta
+
+            new_edges = 0                                           # NEW
+
+            for (endpoint_local, dtheta, arc_len) in primitive_lib:
+                # transform local primitive endpoint into world coords (unchanged math)
+                wx =  endpoint_local[0] * math.cos(s_th) - endpoint_local[1] * math.sin(s_th)
+                wy =  endpoint_local[0] * math.sin(s_th) + endpoint_local[1] * math.cos(s_th)
+                x_new = s.x + wx
+                y_new = s.y + wy
+                th_new = self.wrap_angle(s_th + dtheta)             # (unchanged)
+
+                # --- avoid self-loops caused by ε-bucketing ---     # NEW
+                if self.pose_key_from_vals(x_new, y_new, th_new) == self.pose_key_from_vals(s.x, s.y, s.theta):
+                    continue
+
+                # bounds + collision along the arc (unchanged semantics)
+                if not in_world_bounds(x_new, y_new):
+                    continue
+                if not self.is_edge_free(s, dtheta=dtheta, arc_l=arc_len, wheelbase=wheelbase):
+                    continue
+
+                # Get/create continuous target using ε-hash (NO snapping to cell centers)
+                v = self.get_or_make_node(x_new, y_new, th_new, nodes_by_key)
+
+                # Ensure adjacency list exists for v; expand from new nodes as well
+                if v not in adj:
+                    # --- respect node cap before adding/expanding --- # NEW
+                    if len(nodes_by_key) >= MAX_NODES:
+                        continue
+                    adj[v] = []
+                    if len(frontier) < MAX_FRONTIER:                 # NEW
+                        frontier.append(v)
+
+                # Cost + metadata (PRESERVED)
+                cost = abs(arc_len) + 0.05 * abs(dtheta)
+                meta = EdgeData(dtheta=dtheta, arc_len=arc_len)
+                adj[s].append((v, cost, meta))
+
+                new_edges += 1                                       # NEW
+                if new_edges >= MAX_NEW_EDGES_PER_NODE:              # NEW
+                    break
 
 
-
+        # Export as (set, dict)
+        nodes = set(nodes_by_key.values())                        # NEW
+        self.lattice = nodes, adj
+        return self.lattice
+        """
 
 """
     def gen_state_lattice( self,
